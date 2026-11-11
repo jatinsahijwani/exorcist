@@ -32,7 +32,11 @@ for m in incident-2026-10 deposit-vulnerable noreturn-vulnerable withdraw-vulner
   code=$(echo "$out" | tail -1 | cut -d= -f2)
   d=$(python3 -c "import json;d=json.load(open('out/$m.json'));print(f\"{d['violation']['depth']} ({d['states_explored']} states)\")" 2>/dev/null || echo "?")
   if [ "$code" = "1" ] && [ -f "out/$m.witness.lean" ] && lake env lean "out/$m.witness.lean" >/dev/null 2>&1; then
-    row PASS "$m: attack found, witness theorem kernel-checked" "found at depth $d"
+    if [ "$m" = "withdraw-fixed-callback-fail" ]; then
+      row PASS "$m: stuck funds when callbacks may fail (assumption check)" "found at depth $d"
+    else
+      row PASS "$m: attack found, witness theorem kernel-checked" "found at depth $d"
+    fi
   else
     row FAIL "$m: expected a violation with a checked witness" "-"
   fi

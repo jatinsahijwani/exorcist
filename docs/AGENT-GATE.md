@@ -1,5 +1,11 @@
 # Agent gate: an AI coding agent may deploy only what Exorcist accepts
 
+![The agent is blocked by the Exorcist MCP gate, then allowed after the fix](media/agent-gate.svg)
+
+**An AI coding agent using the Exorcist MCP gate cannot deploy a contract that Exorcist marks insolvent.**
+In CI, the same check fails [PR #1](https://github.com/jatinsahijwani/exorcist/pull/1), which reintroduces the
+bug ([failing run](https://github.com/jatinsahijwani/exorcist/actions/runs/43002422958)).
+
 AI agents now write and ship contracts. An agent with deploy rights should not be trusted to notice
 an async accounting bug in its own code. `mcp/exorcist_mcp.py` is a small MCP server (stdio,
 Python standard library only) that gives any MCP-capable agent three tools:

@@ -2,27 +2,22 @@
 
 **Finds ghost funds in NEAR contracts, or proves there are none.**
 
+[Live results page](https://jatinsahijwani.github.io/exorcist/) · [Results](docs/RESULTS.md) · [Claims table](#for-automated-reviewers) · [What it does not claim](#what-exorcist-does-not-claim)
+
 ![Exorcist finds the incident attack, proves the fix, and make demo passes](docs/media/demo.svg)
 
-Exorcist checks whether a NEAR contract can lose money when a cross-contract call fails. For a
-vulnerable contract it prints a concrete, step-by-step attack trace and a Lean theorem, checked by the
-Lean kernel, stating that the trace really breaks the invariant. For a fixed contract it gives an
-exhaustive bounded search result and a Lean 4 proof of the solvency invariant for **every** trace of our
-NEAR execution model.
-Every trace is also replayed against real Rust contracts in a local NEAR sandbox.
-(Recording: `docs/media/demo.cast`, playable with `asciinema play`; regenerate with `scripts/record-demo.py`.)
+## Found automatically: the Oct 2026 NEAR Intents mechanism
 
-## The opening case: the Oct 2026 NEAR Intents mechanism, found automatically
+> `incident-2026-10` is **a minimal model of the mechanism, not their contract.** It is written from scratch,
+> following the mechanism the NEAR Intents postmortem describes.
 
-> `incident-2026-10` is **a minimal model of the mechanism, written from scratch — not their contract.**
-
-The NEAR Intents postmortem describes it as follows: a deposit notifies a contract the depositor
-chose; "the attacker created a contract that deliberately failed those notifications, causing the token
-contract to refund the deposit while NEAR Intents retained the corresponding ledger credit"; 23 failed
-deposits built $3.8M of unbacked balances, which were withdrawn (the funds were returned;
-[summary of the postmortem](https://cryptonews.net/news/security/33604900/)). The model has a pool of
-depositors (300 credited and held) and an attacker with 100 tokens. We give the explorer no hint about
-the attack; it is asked only whether the attacker can ever cash out more than she put in:
+The postmortem describes it as follows: a deposit notified a contract the depositor chose; "the attacker
+created a contract that deliberately failed those notifications, causing the token contract to refund the
+deposit while NEAR Intents retained the corresponding ledger credit"; 23 such deposits built $3.8M of
+unbacked balances, which were withdrawn and later returned
+([postmortem summary](https://cryptonews.net/news/security/33604900/)). Exorcist is asked only whether the
+attacker can ever cash out more than she put in. It **finds the full exploit automatically: depth 8,
+26,191 states, about 45 ms, with a witness theorem checked by the Lean kernel**:
 
 ```
 $ ./.lake/build/bin/exorcist check incident-2026-10
@@ -49,8 +44,8 @@ Witness theorem: out/incident-2026-10.witness.lean
   ✓ checked by the Lean kernel (decide): this trace really violates the property
 ```
 
-Timings vary by machine. The fixed contract credits only after the notification has succeeded. It is
-clean up to depth 10 (1,289,374 states) and proven solvent for every trace:
+The fixed contract credits only after the notification has succeeded. It is clean up to depth 10
+(1,289,374 states) and **proven solvent for every trace of our NEAR execution model**:
 
 ```
 $ ./.lake/build/bin/exorcist prove incident-2026-10-fixed
@@ -59,9 +54,96 @@ axioms:    'incident_2026_10_fixed_solvent_all_traces' depends on axioms: [prope
 axioms:    'NearAsync.Vault.Proof.fixed_vault_solvent_forever' depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
 
-`Verifier/Witness/Incident.lean` also checks, with the kernel, the repeated version: two failed deposits
-and one withdrawal leave the attacker with 300 tokens and the pool backed by only 100. The same
-transactions against the fixed contract leave everything whole.
+Timings vary by machine. Exorcist also checks three other bug patterns, proves two properties of the fixed
+vault, and replays every trace on real Rust contracts in a local NEAR sandbox and on NEAR testnet.
+
+## Try it in 2 minutes
+
+Do X → see Y. These are the times measured on a fresh clone with Lean and Rust already installed; the very
+first install downloads the toolchains (a few minutes).
+
+**0. Install** (once): [elan](https://github.com/leanprover/elan) for Lean (`lean-toolchain` pins 4.34.0).
+Rust ([rustup](https://rustup.rs)) is only needed for the sandbox (`make demo`).
+
+```sh
+curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+curl https://sh.rustup.rs -sSf | sh -s -- -y
+git clone https://github.com/jatinsahijwani/exorcist && cd exorcist
+```
+
+**1. `make quick`** (about 90 s): builds everything, finds every bug, checks every proof. It ends with:
+
+```
+PASS    incident-2026-10: attack found, witness theorem kernel-checked            found at depth 8 (26191 states)
+…
+PASS    incident-2026-10-fixed: solvent (sum of ledger <= tokens held)            proven for all traces
+…
+ALL PASS
+```
+
+**2. `./.lake/build/bin/exorcist check incident-2026-10`** (under 1 s): the attack. You see the 8-step trace
+above, `RESULT: VIOLATION (insolvent) at depth 8, 26191 states explored`, and
+`✓ checked by the Lean kernel (decide): this trace really violates the property`. Exit code 1.
+
+**3. `./.lake/build/bin/exorcist prove incident-2026-10-fixed`** (about 1 s): the proof. You see
+`RESULT:    ✓ PROVEN FOR ALL TRACES: solvent` and `depends on axioms: [propext, Classical.choice, Quot.sound]`.
+
+**4. Your own contract:** `./.lake/build/bin/exorcist new vault && lake build exorcist && ./.lake/build/bin/exorcist check vault`
+(about 30 s to build, 15 s to check). You see `created Verifier/Models/User/Vault.lean and registered model 'vault'`,
+then `RESULT: NO VIOLATION — bounded to depth 10: 8251651 states explored` and
+`✓ reachable in 4 steps: alice withdraws her 100`. Edit `handle` in that file to try a bug
+([docs/WRITE-A-MODEL.md](docs/WRITE-A-MODEL.md)); `git checkout Verifier/Models/User.lean && rm -r Verifier/Models/User/` undoes it.
+
+## For automated reviewers
+
+Every headline claim, with the file that holds the evidence, a command that checks it, and the expected
+output. Run commands from the repo root after `make quick`. "Contains" means the line appears in the output.
+
+| # | Claim | Evidence | Command | Expected output |
+|---|---|---|---|---|
+| 1 | The incident mechanism (minimal model, not their contract) is found automatically | `Verifier/Models/Registry.lean` (`m_incident`) | `./.lake/build/bin/exorcist check incident-2026-10` | contains `VIOLATION (insolvent) at depth 8, 26191 states explored`; exit 1 |
+| 2 | That attack trace is a witness theorem checked by the Lean kernel | `out/incident-2026-10.witness.lean` (written by #1) | `lake env lean out/incident-2026-10.witness.lean && echo OK` | `OK` (no errors) |
+| 3 | The repeated attack (2 failed deposits → attacker 300, pool backed by 100) and the fixed contract's safety on the same transactions | `Verifier/Witness/Incident.lean` | `lake build Verifier.Witness.Incident` | contains `Build completed successfully` |
+| 4 | The fixed incident contract is solvent for every trace of the model | `Verifier/Proof/Theorem.lean` (`concrete_fixed_solvent_from`) | `./.lake/build/bin/exorcist prove incident-2026-10-fixed` | contains `✓ PROVEN FOR ALL TRACES: solvent` |
+| 5 | The general solvency theorem (any accounts, amounts, attacker code, any receipt failing) uses only standard axioms, so no `sorry` and no `native_decide` | `Verifier/Proof/` (`fixed_vault_solvent_forever`) | same as #4 | contains `'NearAsync.Vault.Proof.fixed_vault_solvent_forever' depends on axioms: [propext, Classical.choice, Quot.sound]` |
+| 6 | No stuck funds, assuming callbacks don't fail and no plain `ft_transfer` donations | `Verifier/Proof/NoStuckCases.lean` (`fixed_vault_no_stuck_funds`) | `./.lake/build/bin/exorcist prove withdraw-fixed` | contains `✓ PROVEN FOR ALL TRACES: no stuck funds` |
+| 7 | That callback assumption is necessary: if callbacks may fail, funds get stuck | `m_withdraw_fixed_callback_fail` | `./.lake/build/bin/exorcist check withdraw-fixed-callback-fail` | contains `VIOLATION (funds_stuck) at depth 4, 167 states explored` |
+| 8 | Ghost funds via a failed notification | `Verifier/Witness/GhostFunds.lean` | `./.lake/build/bin/exorcist check deposit-vulnerable` | contains `VIOLATION (insolvent) at depth 5, 444 states explored` |
+| 9 | Ghost funds with no failure at all (hook returns nothing) | `Verifier/Witness/NoReturn.lean` | `./.lake/build/bin/exorcist check noreturn-vulnerable` | contains `VIOLATION (insolvent) at depth 5, 438 states explored` |
+| 10 | Withdraw without restore strands user funds | `Verifier/Witness/WithdrawNoRestore.lean` | `./.lake/build/bin/exorcist check withdraw-vulnerable` | contains `VIOLATION (funds_stuck) at depth 5, 3622 states explored` |
+| 11 | The fixed models are clean up to depth 10 (bounded) | `docs/RESULTS.md` | `make check` | contains `fixed models clean (bounded to depth 10); vulnerable models caught` |
+| 12 | The fixes still allow honest use (liveness) | `Verifier/Witness/Liveness.lean` | `./.lake/build/bin/exorcist check deposit-fixed` | contains `✓ reachable in 6 steps: honest deposit` and `✓ reachable in 4 steps: withdraw pays out` |
+| 13 | The model matches real Rust contracts in the NEAR sandbox, transaction by transaction | `sandbox/tests/replay.rs` | `make sandbox` | contains `test result: ok. 9 passed` |
+| 14 | On NEAR testnet the attack drains the vulnerable vault and leaves the fixed one whole | [vulnerable deposit tx](https://testnet.nearblocks.io/txns/EBigWS13rHHqTDYNKMsamY9d4bhcdpuR4v1GFUkMxycN), [fixed deposit tx](https://testnet.nearblocks.io/txns/G9f5oowAE1Y1tmjBR1ePsAxmPtdSdtZ6aYcYkuPKppqG), [docs/RESULTS.md](docs/RESULTS.md#testnet-replay-run-on-2026-11-11) | `curl -s -X POST https://rpc.testnet.fastnear.com -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tx","params":{"tx_hash":"EBigWS13rHHqTDYNKMsamY9d4bhcdpuR4v1GFUkMxycN","sender_account_id":"eve-x404319v.exorcist-replay-35b9fa.testnet","wait_until":"FINAL"}}'` | contains `"final_execution_status":"FINAL"` and `EXORCIST ft_transfer_call` |
+| 15 | An AI agent using the MCP gate is blocked from deploying the vulnerable vault and allowed after the fix | `mcp/exorcist_mcp.py`, [docs/AGENT-GATE.md](docs/AGENT-GATE.md) | `python3 mcp/agent_gate_demo.py` | contains `PASS: vulnerable contract blocked, fixed contract allowed` |
+| 16 | CI fails a PR that reintroduces the bug ([PR #1](https://github.com/jatinsahijwani/exorcist/pull/1)) | `.github/workflows/exorcist.yml`, `action.yml` | `curl -s https://api.github.com/repos/jatinsahijwani/exorcist/commits/example/vulnerable-pr/check-runs \| grep '"conclusion"'` | `"conclusion": "failure"` (both jobs) |
+| 17 | NEAR AI drafts of our three contracts match the hand-written models (experimental) | `drafts/*.lean`, [drafts/ASSESSMENT.md](drafts/ASSESSMENT.md) | `scripts/verify-drafts.sh` (no key needed) | 8 lines ending `✓ same` |
+| 18 | You can model your own contract and check it | [docs/WRITE-A-MODEL.md](docs/WRITE-A-MODEL.md) | `scripts/test-walkthrough.sh` | contains `WALKTHROUGH PASS` |
+| 19 | The draft pipeline (request, compile, repair loop, comparison) works | `Exorcist/Draft.lean` | `scripts/test-draft.sh` | contains `DRAFT PIPELINE PASS` |
+| 20 | Everything above in one command | `scripts/demo.sh` | `make demo` | ends with `ALL PASS` |
+| 21 | Facts about the incident ($3.8M, 23 failed deposits, notification mechanism, funds returned) | external | open the [postmortem summary](https://cryptonews.net/news/security/33604900/) | the quoted sentences |
+| 22 | NEAR AI solved 672 PutnamBench problems for about $112 | external | open [nearai/putnambench-deepseek](https://github.com/nearai/putnambench-deepseek) | "672 problems solved", "~$112" |
+
+## What Exorcist does not claim
+
+* **It covers the modelled fragment of NEAR, not the full runtime.** Bounded checking and proofs are about
+  our model of async receipts, callbacks, promise results, deposit refunds and the NEP-141 flow. Not
+  modelled: gas amounts (instead the adversary may fail receipts), storage staking and NEP-145
+  registration, deleted accounts, u128 overflow, `promise_set_refund_to`, joint promises (`and`), and
+  non-payable methods rejecting attached deposits.
+* **Proofs are only as good as the model and the specification.** The models are written by hand (with AI
+  assistance) and reviewed. A proof says nothing about Rust code that differs from its model; the sandbox
+  and testnet replays check agreement only on the traces we replayed. "Solvent for every trace" means every
+  trace of our NEAR execution model. "No stuck funds" additionally assumes callbacks don't fail and no
+  plain `ft_transfer` donations (claim 7 shows the first assumption is needed).
+* **Bounded results are bounded.** "No violation up to depth 10" covers the listed actors, amounts and
+  transactions only. `prove --bounded N` is kernel-checked but still bounded.
+* **AI drafting is experimental.** The drafts of our three small contracts matched, which is evidence on
+  three contracts, not a general claim; every draft needs human review.
+* **It is not a replacement for an audit.** It checks specific accounting properties of a model.
+* **The NEAR Intents case is a minimal model of the mechanism, not their contract.** It says nothing about
+  that contract's code.
+* The example contracts are small and written for this project; they are not production contracts.
 
 ## The problem
 
@@ -112,7 +194,19 @@ the invariant Exorcist checks. ([cryptonews summary of the Oct 16 postmortem](ht
     it ([docs/DRAFT.md](docs/DRAFT.md)). On our three contracts, every draft compiled in the first round
     and matched the hand-written models on all 8 checks ([drafts/ASSESSMENT.md](drafts/ASSESSMENT.md)).
 
-## Quickstart
+## Agent gate
+
+![The agent is blocked by the Exorcist MCP gate, then allowed after the fix](docs/media/agent-gate.svg)
+
+**An AI coding agent using the Exorcist MCP gate cannot deploy a contract that Exorcist marks insolvent.**
+`mcp/exorcist_mcp.py` gives the agent `exorcist_check` and `exorcist_prove`, whose results carry
+`deploy_allowed`. Above, the scripted agent is blocked on `withdraw-vulnerable` (attack trace returned),
+applies the fix, and is allowed after `check` and `prove` pass ([docs/AGENT-GATE.md](docs/AGENT-GATE.md)).
+In CI the same check blocks pull requests: [PR #1](https://github.com/jatinsahijwani/exorcist/pull/1)
+reintroduces the bug and its [check fails](https://github.com/jatinsahijwani/exorcist/actions/runs/43002422958)
+with the attack trace ([docs/EXAMPLE_PR.md](docs/EXAMPLE_PR.md)).
+
+## Full reproduction
 
 Prerequisites: `git`, `curl`, `python3` and [elan](https://github.com/leanprover/elan), the Lean toolchain
 manager, which installs the pinned Lean 4.34.0 automatically. Only `make demo` and `make sandbox` also need
@@ -139,6 +233,7 @@ PASS    incident-2026-10: attack found, witness theorem kernel-checked          
 PASS    deposit-vulnerable: attack found, witness theorem kernel-checked          found at depth 5 (444 states)
 PASS    noreturn-vulnerable: attack found, witness theorem kernel-checked         found at depth 5 (438 states)
 PASS    withdraw-vulnerable: attack found, witness theorem kernel-checked         found at depth 5 (3622 states)
+PASS    withdraw-fixed-callback-fail: stuck funds when callbacks may fail (assumption check)  found at depth 4 (167 states)
 PASS    incident-2026-10-fixed: no violation, honest deposit + withdraw reachable  bounded to depth 10
 PASS    deposit-fixed: no violation, honest deposit + withdraw reachable          bounded to depth 10
 PASS    noreturn-fixed: no violation, honest deposit + withdraw reachable         bounded to depth 10
@@ -147,8 +242,8 @@ PASS    incident-2026-10-fixed: solvent (sum of ledger <= tokens held)          
 PASS    deposit-fixed: solvent (sum of ledger <= tokens held)                     proven for all traces
 PASS    noreturn-fixed: solvent (sum of ledger <= tokens held)                    proven for all traces
 PASS    withdraw-fixed: solvent (sum of ledger <= tokens held)                    proven for all traces
-PASS    withdraw-fixed: no stuck funds (tokens held = ledger when idle)           proven for all traces
-PASS    noreturn-fixed: no stuck funds (tokens held = ledger when idle)           proven for all traces
+PASS    withdraw-fixed: no stuck funds (assumes: callbacks don't fail, no donations)  proven for all traces
+PASS    noreturn-fixed: no stuck funds (assumes: callbacks don't fail, no donations)  proven for all traces
 PASS    agent gate (MCP): vulnerable blocked, fixed allowed                       check + prove via MCP
 PASS    sandbox replay skipped (QUICK=1)                                          -
 
@@ -217,7 +312,7 @@ How the pieces fit: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Model | Result | Label |
 |---|---|---|
 | `incident-2026-10` (minimal model of the Oct 2026 mechanism, not their contract) | attacker cashes out 200 from a 100 deposit; found automatically in 26,191 states | found at depth 8, witness kernel-checked |
-| `incident-2026-10-fixed` | no violation (1,289,374 states); solvent | bounded to depth 10; **proven for all traces** |
+| `incident-2026-10-fixed` | no violation (1,289,374 states); solvent | bounded to depth 10; **proven for all traces of the model** |
 | `deposit-vulnerable` | insolvent after 5 steps; eve can then withdraw alice's tokens | found within depth 10, witness kernel-checked |
 | `deposit-fixed` | no violation (1,044,233 states) | bounded to depth 10 |
 | `deposit-fixed` | solvent | **proven for all traces** |
@@ -272,32 +367,6 @@ The solvency invariant (`Verifier/Proof/Defs.lean`): Σ ledger + every refund th
 `ft_resolve_transfer` may still make + every amount a pending `after_withdraw` may still restore
 ≤ tokens held. It also requires well-formed pending receipts: fresh, distinct ids, and every in-flight
 credit or vault transfer has its callback waiting on it for at least that amount.
-
-## Limits
-
-* **The models are written by hand** (with AI assistance) from the Rust contracts and reviewed by a
-  human. Exorcist does not yet read Rust; automatic extraction is on the roadmap. If the Rust differs
-  from the model, the proof says nothing about the Rust. The sandbox replay is how we check that they
-  agree on the traces we run.
-* **Proofs are only as good as the specification and the semantics model.** The invariant is solvency
-  of the vault's ledger. The semantics follows NEAR docs and the near-sdk-rs reference (sources in
-  docs/SEMANTICS.md).
-* **Not modelled:** gas (instead the adversary may fail receipts; the proof allows any receipt to
-  fail), storage staking and NEP-145 registration (every account is treated as registered), deleted
-  accounts (the reference token burns refunds to deleted senders), u128 overflow (amounts are unbounded
-  naturals), `promise_set_refund_to`, joint promises (`and`).
-* **Bounded results are bounded.** "No violation up to depth 10" covers the listed actors, amounts and
-  transactions only. Only rows labelled "proven for all traces" are unbounded.
-* The no-stuck-funds theorem assumes callbacks are not failed (enough gas reserved) and no plain
-  `ft_transfer` donations to the vault; the solvency theorem has neither assumption.
-* The example contracts are small and written for this project; they are not production contracts.
-* `incident-2026-10` models the mechanism described in a public postmortem. It is not the NEAR Intents
-  contract and says nothing about that contract's current code.
-* `prove --bounded N` is kernel-checked but bounded; keep N small (4–5), because kernel evaluation is slow.
-* `exorcist draft` is experimental. Its drafts of our three small contracts matched the hand-written
-  models, but that is evidence on three contracts, not a general claim; every draft still needs human review.
-* The hand-written vault model does not include near-sdk's rule that non-payable methods reject an
-  attached deposit; the NEAR AI drafts do. No scenario here attaches such a deposit, so no verdict changes.
 
 ## Trusted base
 

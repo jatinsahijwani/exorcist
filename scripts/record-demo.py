@@ -47,6 +47,12 @@ def scene_demo():
     return "make demo", keep, dt
 
 
+def scene_agent():
+    out, dt = run("python3 mcp/agent_gate_demo.py")
+    keep = [l for l in out.splitlines() if l.strip()]
+    return "python3 mcp/agent_gate_demo.py   # an AI agent must pass the Exorcist MCP gate to deploy", keep, dt
+
+
 def write_cast(scenes, path):
     with open(path, "w") as f:
         f.write(json.dumps({"version": 2, "width": 110, "height": 34, "title": "Exorcist demo",
@@ -64,16 +70,16 @@ def write_cast(scenes, path):
 def color(l):
     if l.startswith("$ "):
         return "#e5c07b"
-    if any(k in l for k in ("⚠", "VIOLATION", "FAIL ")) and "PASS" not in l[:6]:
+    if any(k in l for k in ("⚠", "VIOLATION", "FAIL ", "BLOCKED", "deploy_allowed=False")) and "PASS" not in l[:6]:
         return "#e06c75"
-    if any(k in l for k in ("✓", "PASS", "PROVEN", "ALL PASS")):
+    if any(k in l for k in ("✓", "PASS", "PROVEN", "ALL PASS", "deploy_allowed=True", "gate passed")):
         return "#98c379"
     if l.startswith(("NOTE", "axioms")):
         return "#7f8c98"
     return "#d7dae0"
 
 
-def write_svg(scenes, path, width=980, lh=16.5, maxlines=30):
+def write_svg(scenes, path, width=980, lh=16.5, maxlines=34, title="exorcist — finds ghost funds in NEAR contracts, or proves there are none"):
     # timeline: each scene shows its command, then lines appear one by one, then holds
     events, t = [], 0.0
     for cmd, lines, _ in scenes:
@@ -105,13 +111,17 @@ def write_svg(scenes, path, width=980, lh=16.5, maxlines=30):
            f'<rect width="{width}" height="{h}" rx="8" fill="#1e2127"/>'
            f'<circle cx="18" cy="16" r="5" fill="#e06c75"/><circle cx="36" cy="16" r="5" fill="#e5c07b"/>'
            f'<circle cx="54" cy="16" r="5" fill="#98c379"/>'
-           f'<text x="{width / 2:.0f}" y="20" fill="#7f8c98" text-anchor="middle">exorcist — finds ghost funds in NEAR contracts, or proves there are none</text>'
+           f'<text x="{width / 2:.0f}" y="20" fill="#7f8c98" text-anchor="middle">{html.escape(title)}</text>'
            f'{"".join(body)}</svg>')
     with open(path, "w") as f:
         f.write(svg)
 
 
 if __name__ == "__main__":
+    agent = [scene_agent()]
+    write_cast(agent, os.path.join(ROOT, "docs/media/agent-gate.cast"))
+    write_svg(agent, os.path.join(ROOT, "docs/media/agent-gate.svg"), maxlines=26,
+              title="Exorcist MCP gate: the agent is blocked, then allowed after the fix")
     scenes = [scene_incident(), scene_prove(), scene_demo()]
     write_cast(scenes, os.path.join(ROOT, "docs/media/demo.cast"))
     write_svg(scenes, os.path.join(ROOT, "docs/media/demo.svg"))
