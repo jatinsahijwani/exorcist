@@ -39,6 +39,14 @@ inductive Call (α : Type) where
 
 variable {α : Type} [DecidableEq α]
 
+/-- What `ft_resolve_transfer` treats as unused: the parsed U128 result capped at `amount`;
+the full amount if the promise failed or its value is not a number. -/
+def unusedAmount (r : PResult) (amt : Nat) : Nat :=
+  match r with
+  | .ok (.nat n) => min n amt
+  | .ok .unit => amt
+  | .failed => amt
+
 /-- Outcome of a token method on the token's balance map. -/
 def ftHandle {S : Type} (getFt : S → Bal α) (setFt : S → Bal α → S)
     (ctx : Ctx α) (c : Call α) (s : S) : Outcome S α (Call α) :=
@@ -64,10 +72,7 @@ def ftHandle {S : Type} (getFt : S → Bal α) (setFt : S → Bal α → S)
     match ctx.input with
     | none => .panic "no promise result"
     | some r =>
-      let unused := match r with
-        | .ok (.nat n) => min n amt
-        | .ok .unit => amt
-        | .failed => amt
+      let unused := unusedAmount r amt
       let rb := ft.get receiver
       if 0 < unused ∧ 0 < rb then
         let refund := min rb unused

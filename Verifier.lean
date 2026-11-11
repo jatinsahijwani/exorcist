@@ -7,3 +7,4 @@ import Verifier.Witness.GhostFunds
 import Verifier.Witness.NoReturn
 import Verifier.Witness.WithdrawNoRestore
 import Verifier.Witness.Liveness
+import Verifier.Proof.Theorem
