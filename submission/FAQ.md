@@ -56,8 +56,9 @@ convenience: the committed proofs are checked offline without any key, and nothi
 is trusted unless the kernel accepts it. Today it targets the model-level theorems; the large
 invariant proof was written by hand with AI assistance. `exorcist draft --from lib.rs` (experimental)
 has NEAR AI draft the model itself from Rust; `make drafts` compares each draft semantically with the
-hand-written model. Real drafts need a key and have not been generated yet; only the pipeline is tested,
-against a mock.
+hand-written model. On our three contracts, every NEAR AI draft compiled in the first round, matched on all
+8 checks, and was faithful in a line-by-line review; it even modelled a near-sdk deposit rule we had
+left out. Drafts remain experimental and every line needs human review.
 
 **9. Isn't "any receipt may fail" unrealistic?**
 For the proof it is deliberately the strongest assumption: if the vault stays solvent when the

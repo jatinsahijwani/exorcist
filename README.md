@@ -107,7 +107,8 @@ the invariant Exorcist checks. ([cryptonews summary of the Oct 16 postmortem](ht
 9. **Your own contract in about 20 lines**: `exorcist new <name>` scaffolds a model; `check` and
    `prove --bounded N` (kernel-checked) work on it ([docs/WRITE-A-MODEL.md](docs/WRITE-A-MODEL.md)).
 10. **EXPERIMENTAL `exorcist draft --from lib.rs`**: NEAR AI drafts a model from Rust, and a human reviews
-    it ([docs/DRAFT.md](docs/DRAFT.md)). Real drafts need a NEAR AI key and have not been generated yet.
+    it ([docs/DRAFT.md](docs/DRAFT.md)). On our three contracts, every draft compiled in the first round
+    and matched the hand-written models on all 8 checks ([drafts/ASSESSMENT.md](drafts/ASSESSMENT.md)).
 
 ## Quickstart
 
@@ -225,6 +226,7 @@ How the pieces fit: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | `withdraw-fixed`, `noreturn-fixed` | no stuck funds: when nothing is in flight, tokens held = Σ ledger | **proven for all traces** (assumptions below) |
 | sandbox | all 8 trace replays match the model after every transaction; negative control passes | real Rust contracts, near-workspaces |
 | agent gate (MCP) | an AI agent is blocked from deploying `withdraw-vulnerable` and allowed after the fix | tested in CI and `make demo` |
+| `exorcist draft` (experimental) | NEAR AI drafts of all 3 contracts: compile in round 1, 8/8 checks match, faithful on review | evidence on 3 contracts |
 | your model (`exorcist new`) | walkthrough: the scaffold is clean; a "debit on success" variant pays alice twice | tested end to end in CI |
 
 Details, bounds and `#print axioms` output: [docs/RESULTS.md](docs/RESULTS.md).
@@ -288,8 +290,10 @@ credit or vault transfer has its callback waiting on it for at least that amount
 * `incident-2026-10` models the mechanism described in a public postmortem. It is not the NEAR Intents
   contract and says nothing about that contract's current code.
 * `prove --bounded N` is kernel-checked but bounded; keep N small (4–5), because kernel evaluation is slow.
-* `exorcist draft` is experimental and untested on real NEAR AI output so far (no key was available);
-  only the pipeline is tested, against a mock API.
+* `exorcist draft` is experimental. Its drafts of our three small contracts matched the hand-written
+  models, but that is evidence on three contracts, not a general claim; every draft still needs human review.
+* The hand-written vault model does not include near-sdk's rule that non-payable methods reject an
+  attached deposit; the NEAR AI drafts do. No scenario here attaches such a deposit, so no verdict changes.
 
 ## Trusted base
 

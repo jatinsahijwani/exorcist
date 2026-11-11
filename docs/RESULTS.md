@@ -74,7 +74,7 @@ exactly one in-flight source of the same amount.
 | MCP agent gate (`mcp/agent_gate_demo.py`) | `withdraw-vulnerable` blocked (attack trace returned), `withdraw-fixed` allowed after `check` + `prove` | tested in CI and `make demo` |
 | `exorcist new` walkthrough (`scripts/test-walkthrough.sh`) | scaffold clean (8,251,651 states) and kernel-checked to depth 4; the "debit on success" variant pays alice twice (found at depth 8) | tested in CI |
 | `exorcist prove <model> --bounded N` | the bounded search re-run inside the kernel (`decide +kernel`) | kernel-checked, bounded |
-| `exorcist draft` (EXPERIMENTAL) | pipeline tested against a mock API; **real NEAR AI drafts not generated yet (no key)** | experimental |
+| `exorcist draft` (EXPERIMENTAL) | NEAR AI drafted all 3 contracts (5 builds); all compile in round 1; 8/8 semantic checks match the hand-written models; human review: all faithful, and the drafts model a near-sdk deposit rule we had omitted ([drafts/ASSESSMENT.md](../drafts/ASSESSMENT.md)) | experimental; evidence on 3 contracts |
 
 ## Sandbox validation (near-workspaces 0.24, local NEAR sandbox)
 

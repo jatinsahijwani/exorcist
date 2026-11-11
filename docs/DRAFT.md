@@ -36,6 +36,9 @@ The pipeline is tested offline in CI by `scripts/test-draft.sh`. It runs against
 checks the plumbing (request, compile check, repair loop, comparison, report), and nothing about
 draft quality.
 
-**Real drafts have not been generated yet.** They need a NEAR AI Cloud key. Run
-`NEARAI_API_KEY=... make drafts`, commit `drafts/`, and replace this paragraph with an assessment of
-what `drafts/ASSESSMENT.md` shows.
+**Real drafts, 2026-11-11.** `make drafts` with `anthropic/claude-opus-5-5` on NEAR AI Cloud: all five
+drafts compiled in the first round, and all 8 semantic checks give the same verdict as the
+hand-written models. In a line-by-line review all five are faithful, and the drafts model one
+near-sdk rule our hand-written vault leaves out: non-payable methods reject an attached deposit. See
+[`drafts/ASSESSMENT.md`](../drafts/ASSESSMENT.md) and `drafts/*.lean`. This is evidence on three small
+contracts we wrote ourselves, not a general claim; the feature stays experimental.
