@@ -50,24 +50,27 @@ the invariant Exorcist checks. ([cryptonews summary of the Oct 16 postmortem](ht
 
 ## Quickstart
 
-Prerequisites: `git`, `curl`, `python3`; [elan](https://github.com/leanprover/elan) (the Lean toolchain
-manager; it installs the pinned Lean 4.34.0 automatically); for the sandbox part, [rustup](https://rustup.rs)
-(it installs the pinned Rust 1.96.0 and the wasm target automatically).
+Prerequisites: `git`, `curl`, `python3` and [elan](https://github.com/leanprover/elan), the Lean toolchain
+manager, which installs the pinned Lean 4.34.0 automatically. Only `make demo` and `make sandbox` also need
+[rustup](https://rustup.rs), which installs the pinned Rust 1.96.0 and the wasm target automatically.
+Below, `exorcist` means `./.lake/build/bin/exorcist` (built by `make quick`).
 
 ```sh
 curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
 git clone https://github.com/jatinsahijwani/exorcist && cd exorcist
 ```
 
-**1. Fast screening, no sandbox** (about 2 minutes on a laptop; the first run also downloads Lean):
+**1. Fast screening, no sandbox** (under a minute once Lean is installed; the first run also downloads
+the Lean toolchain, a few minutes):
 
 ```sh
 make quick
 ```
 
-You should see a table that ends like this:
+You should see this table at the end:
 
 ```
+PASS    lake build: semantics, models, witness + liveness theorems, unbounded proof  kernel-checked
 PASS    deposit-vulnerable: attack found, witness theorem kernel-checked          found at depth 5
 PASS    noreturn-vulnerable: attack found, witness theorem kernel-checked         found at depth 5
 PASS    withdraw-vulnerable: attack found, witness theorem kernel-checked         found at depth 5
@@ -77,7 +80,8 @@ PASS    withdraw-fixed: no violation, honest deposit + withdraw reachable       
 PASS    deposit-fixed: solvent (sum of ledger <= tokens held)                     proven for all traces
 PASS    noreturn-fixed: solvent (sum of ledger <= tokens held)                    proven for all traces
 PASS    withdraw-fixed: solvent (sum of ledger <= tokens held)                    proven for all traces
-PASS    withdraw-fixed: no stuck funds                                            bounded to depth 10 (no unbounded proof yet)
+PASS    withdraw-fixed: no stuck funds (tokens held = ledger when idle)           proven for all traces
+PASS    noreturn-fixed: no stuck funds (tokens held = ledger when idle)           proven for all traces
 PASS    sandbox replay skipped (QUICK=1)                                          -
 
 ALL PASS
@@ -107,7 +111,8 @@ Witness theorem: out/deposit-vulnerable.witness.lean
   ✓ checked by the Lean kernel (decide): this trace really violates the invariant
 ```
 
-The exit code is 1. Before the result it prints the exact bounds (depth, actors, amounts,
+The exit code is 1. The search is compiled Lean code, so hundreds of thousands of states per second is
+normal. Before the result it prints the exact bounds (depth, actors, amounts,
 transactions, which receipts the adversary may fail); after it, the same transactions replayed on the
 fixed vault, and the liveness checks. Add `--json FILE` for machine-readable output with the expected
 balances and ledger after every step.
@@ -119,22 +124,24 @@ balances and ledger after every step.
 ```
 
 ```
-RESULT:    ✓ PROVEN FOR ALL TRACES (checked by the Lean kernel now, file out/prove-deposit-fixed.lean)
+RESULT:    ✓ PROVEN FOR ALL TRACES: solvent (checked by the Lean kernel now, file out/prove-deposit-fixed.lean)
 axioms:    'deposit_fixed_solvent_all_traces' depends on axioms: [propext, Classical.choice, Quot.sound]
 axioms:    'NearAsync.Vault.Proof.fixed_vault_solvent_forever' depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
 
-**4. Everything, including the real-contract sandbox replay** (the first run compiles the Rust
-dependencies, about 10 minutes; later runs about 3 minutes):
+**4. Everything, including the real-contract sandbox replay** (the first run downloads Rust and compiles
+the Rust dependencies, about 5–10 minutes; later runs about 1–2 minutes):
 
 ```sh
 make demo
 ```
 
-This adds rows such as `PASS  sandbox: deposit_attack_on_vulnerable_vault  matches model step by step`
-for each of the 9 sandbox tests, and ends with `ALL PASS`.
+This adds one row per sandbox test (8 trace replays, e.g. `PASS  sandbox: deposit_attack_on_vulnerable_vault
+matches model step by step`, plus a negative-control test showing the harness rejects a wrong prediction),
+and ends with `ALL PASS`.
 
 Other commands: `exorcist list` (all models), `make check` (CI gate), `make prove`, `make sandbox`.
+How the pieces fit: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Results
 
@@ -147,8 +154,8 @@ Other commands: `exorcist list` (all models), `make check` (CI gate), `make prov
 | `noreturn-fixed` | no violation (839,929 states); solvent | bounded to depth 10; **proven for all traces** |
 | `withdraw-vulnerable` | user's tokens stuck in the vault after a failed payout | found within depth 10, witness kernel-checked |
 | `withdraw-fixed` | no violation (11,154,645 states); solvent | bounded to depth 10; **proven for all traces** |
-| `withdraw-fixed` | no stuck funds | bounded to depth 10 only |
-| sandbox | all 8 trace replays match the model after every transaction | real Rust contracts, near-workspaces |
+| `withdraw-fixed`, `noreturn-fixed` | no stuck funds: when nothing is in flight, tokens held = Σ ledger | **proven for all traces** (assumptions below) |
+| sandbox | all 8 trace replays match the model after every transaction; negative control passes | real Rust contracts, near-workspaces |
 
 Details, bounds and `#print axioms` output: [docs/RESULTS.md](docs/RESULTS.md).
 A pull request that reintroduces the bug, and the failing check: [docs/EXAMPLE_PR.md](docs/EXAMPLE_PR.md).
@@ -176,7 +183,13 @@ amounts from accounts other than `T` and `V`, and any initial state with nothing
 ledger: after every finite trace, `Σ ledger ≤ tokens held by V`. It holds for both withdraw variants
 and any hook (it assumes only that deposits are credited in the callback).
 
-The invariant (`Verifier/Proof/Defs.lean`): Σ ledger + every refund that a pending
+`NearAsync.Vault.Proof.fixed_vault_no_stuck_funds` (the withdraw pattern's property): with both fixes,
+if the adversary fails only non-callback receipts (callbacks have gas reserved) and nobody sends the
+vault tokens with a plain `ft_transfer` (a donation is owed to no one), then from an initial state where
+the ledger equals the vault's balance: after every trace, tokens held ≤ Σ ledger + in-flight amounts,
+and whenever nothing is in flight, tokens held = Σ ledger. Other contracts are still arbitrary code.
+
+The solvency invariant (`Verifier/Proof/Defs.lean`): Σ ledger + every refund that a pending
 `ft_resolve_transfer` may still make + every amount a pending `after_withdraw` may still restore
 ≤ tokens held. It also requires well-formed pending receipts: fresh, distinct ids, and every in-flight
 credit or vault transfer has its callback waiting on it for at least that amount.
@@ -196,7 +209,8 @@ credit or vault transfer has its callback waiting on it for at least that amount
   naturals), `promise_set_refund_to`, joint promises (`and`).
 * **Bounded results are bounded.** "No violation up to depth 10" covers the listed actors, amounts and
   transactions only. Only rows labelled "proven for all traces" are unbounded.
-* "No stuck funds" for the withdraw pattern is bounded only; the unbounded proof covers solvency.
+* The no-stuck-funds theorem assumes callbacks are not failed (enough gas reserved) and no plain
+  `ft_transfer` donations to the vault; the solvency theorem has neither assumption.
 * The example contracts are small and written for this project; they are not production contracts.
 
 ## Trusted base
@@ -268,9 +282,8 @@ no pre-hackathon baseline. Libraries and AI assistance are listed above (Q-005).
 ## Roadmap
 
 * Extract models from Rust contracts automatically (near-sdk method bodies to the contract DSL).
-* Unbounded proof of "no stuck funds" (an exact-accounting invariant) for the withdraw pattern.
+* Model callback gas reservations, so the no-stuck-funds theorem no longer needs to assume callbacks succeed.
 * More patterns: NEP-171/245 transfers with callbacks, multi-token vaults, `promise_and` joins.
-* Model gas explicitly (callback gas reservations) instead of arbitrary failures.
 * Use the AI repair loop for the invariant proof of new contracts, not only the model-level corollaries.
 
 ## Background facts

@@ -80,7 +80,8 @@ kernel itself re-run each concrete trace, while `native_decide` would trust the 
 `decide` everywhere.
 
 **Bonus: what about per-user correctness, not just solvency?**
-Solvency is the property whose violation drains other users, and the one the exploit broke. "No
-stuck funds" (a failed payout must not burn the user's balance) is checked by the explorer for the
-withdraw pattern, and the sandbox confirms the fixed vault restores it. An unbounded proof of it is on
-the roadmap.
+Solvency is the property whose violation drains other users, and the one the exploit broke. The
+second property, "no stuck funds" (a failed payout must not burn the user's balance), is also proven
+for all traces (`fixed_vault_no_stuck_funds`): whenever nothing is in flight, the vault holds exactly
+what the ledger owes. It assumes callbacks are not failed (gas reserved) and no plain `ft_transfer`
+donations to the vault, and the README states both assumptions.

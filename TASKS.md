@@ -7,7 +7,7 @@
 - [x] 2. Honest bounds in CLI output and docs/RESULTS.md (depth, actors, amounts, adversary)
 - [x] 3. Unbounded proof: `fixed_vault_solvent_forever` (any accounts, amounts, failures, attacker code); axioms printed
 - [x] 4. Withdraw-without-restore pattern: trace + witness (vulnerable); liveness + bounded + solvency proof (fixed)
-- [ ] 4b. Unbounded "no stuck funds" proof for withdraw-fixed (currently bounded only) — stretch
+- [x] 4b. Unbounded "no stuck funds" proof: `fixed_vault_no_stuck_funds` (assumes non-callback failures, no donations)
 - [x] 5. No-return-value variant: named finding, trace + witness
 - [x] 6. `exorcist check --json`, readable trace, auto witness file, exit codes
 - [x] 7. Sandbox: Rust token/vault/hook, 8 replays + negative control, all match the model
@@ -19,5 +19,5 @@
 - [x] 13. README, SEMANTICS, RESULTS, ARCHITECTURE, EXAMPLE_PR, LICENSE
 - [ ] 13b. Q-015 disclosure line — need Jatin's other project name
 - [x] 14. submission/: FAQ, demo-script, x-post, outreach (payload.json after Jatin's answers)
-- [ ] 15. Fresh-clone subagent check of README + make demo; re-read live HACKATHON.md
+- [x] 15. Fresh-clone subagent check (clean; wording fixes applied); live HACKATHON.md unchanged (11 Nov)
 - [ ] Jatin: answers for payload fields; yes for public repo / X post / submission

@@ -53,20 +53,28 @@ done
 hr "4. Prove the fixes (exorcist prove, unbounded, offline)"
 for m in deposit-fixed noreturn-fixed withdraw-fixed; do
   echo; echo "\$ exorcist prove $m"
-  if $EX prove "$m"; then
+  if $EX prove "$m" | tee "out/prove-$m.axioms.txt"; then
     row PASS "$m: solvent (sum of ledger <= tokens held)" "proven for all traces"
   else
     row FAIL "$m: prove" "-"
   fi
 done
-row PASS "withdraw-fixed: no stuck funds" "bounded to depth $DEPTH (no unbounded proof yet)"
+for m in withdraw-fixed noreturn-fixed; do
+  if grep -q "no_stuck_all_traces' depends on axioms" "out/prove-$m.axioms.txt" 2>/dev/null; then
+    row PASS "$m: no stuck funds (tokens held = ledger when idle)" "proven for all traces"
+  else
+    row FAIL "$m: no stuck funds proof" "-"
+  fi
+done
 
 if [ "$QUICK" != "1" ]; then
   hr "5. Replay every trace against the real Rust contracts in a local NEAR sandbox (near-workspaces)"
   if (cd sandbox && ./build-wasm.sh >/dev/null && cargo test --test replay -- --test-threads=4 2>&1 | tee /tmp/exorcist-sandbox.log | grep -E '^test |test result'); then
     while read -r line; do
       name=$(echo "$line" | sed -E 's/^test ([a-z_]+) .*/\1/')
-      if echo "$line" | grep -q ' ok$'; then row PASS "sandbox: $name" "matches model step by step"; else row FAIL "sandbox: $name" "-"; fi
+      label="matches model step by step"
+      [ "$name" = "harness_detects_model_mismatch" ] && label="negative control: harness rejects a wrong prediction"
+      if echo "$line" | grep -q ' ok$'; then row PASS "sandbox: $name" "$label"; else row FAIL "sandbox: $name" "-"; fi
     done < <(grep -E '^test [a-z_]+ .*\.\.\. ' /tmp/exorcist-sandbox.log)
   else
     row FAIL "sandbox tests" "see /tmp/exorcist-sandbox.log"

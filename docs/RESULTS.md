@@ -17,7 +17,8 @@ Regenerate everything with `make demo`.
 | `withdraw-vulnerable` | debits, `ft_transfer`, never restores on failure | **funds stuck** after 5 steps (3,622 states) | found within depth 10 | `Witness/WithdrawNoRestore.lean`: `withdraw_funds_stuck` |
 | `withdraw-fixed` | restores the ledger in `after_withdraw` on failure | no violation (11,154,645 states) | bounded to depth 10 | `withdraw_fixed_restores` (the attack trace, replayed) |
 | `withdraw-fixed` | same | **solvent** | **proven for all traces** | `fixed_vault_solvent_forever` |
-| `withdraw-fixed` | same | no stuck funds | **bounded to depth 10 only** — no unbounded proof yet | — |
+| `withdraw-fixed` | same | **no stuck funds** (tokens held = Σ ledger whenever nothing is in flight) | **proven for all traces** | `Proof/NoStuckCases.lean`: `fixed_vault_no_stuck_funds` |
+| `noreturn-fixed` | fixed vault, hook returns nothing | **no stuck funds** | **proven for all traces** | `concrete_no_stuck` |
 
 The fixes are not vacuous: `Witness/Liveness.lean` proves (kernel, `decide`) for both fixed
 configurations that an honest deposit through a succeeding hook is credited and that withdraw pays
@@ -55,6 +56,15 @@ Conclusion: in every reachable state, `Σ ledger ≤ token balance of V`.
 
 `concrete_fixed_solvent` instantiates it for the explorer's five-actor model, for every adversary.
 
+`fixed_vault_no_stuck_funds` (`Verifier/Proof/NoStuckCases.lean`) has the same generality, with three
+extra, explicit assumptions: both fixes are in place; the adversary fails only non-callback receipts
+(callbacks have gas reserved); and nobody sends the vault tokens with a plain `ft_transfer` (a donation
+would legitimately be owed to no one). From an initial state where the ledger equals the vault's
+balance, every reachable state has tokens held ≤ Σ ledger + in-flight amounts, and tokens held = Σ ledger
+whenever nothing is in flight. `concrete_no_stuck` instantiates it for `withdraw-fixed` and
+`noreturn-fixed`. Its invariant adds exact pairing: every pending callback with potential waits on
+exactly one in-flight source of the same amount.
+
 ## Sandbox validation (near-workspaces 0.24, local NEAR sandbox)
 
 `sandbox/tests/replay.rs` deploys the Rust token, hook and vault variants and replays the exported
@@ -89,6 +99,8 @@ No mismatch between model and sandbox was found.
 'NearAsync.Vault.Witness.withdraw_fixed_restores' depends on axioms: [propext]
 'NearAsync.Vault.Witness.fixed_deposit_is_credited' depends on axioms: [propext]
 'NearAsync.Vault.Witness.fixed_withdraw_pays_out' depends on axioms: [propext]
+'NearAsync.Vault.Proof.fixed_vault_no_stuck_funds' depends on axioms: [propext, Classical.choice, Quot.sound]
+'NearAsync.Vault.Proof.concrete_no_stuck' depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
 
 `propext`, `Classical.choice` and `Quot.sound` are Lean's standard axioms. No `sorryAx`, and no
