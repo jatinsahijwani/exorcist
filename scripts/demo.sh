@@ -63,7 +63,7 @@ row PASS "withdraw-fixed: no stuck funds" "bounded to depth $DEPTH (no unbounded
 
 if [ "$QUICK" != "1" ]; then
   hr "5. Replay every trace against the real Rust contracts in a local NEAR sandbox (near-workspaces)"
-  if (cd sandbox && ./build-wasm.sh >/dev/null && cargo test -q --test replay -- --test-threads=4 2>&1 | tee /tmp/exorcist-sandbox.log | grep -E '^test |test result'); then
+  if (cd sandbox && ./build-wasm.sh >/dev/null && cargo test --test replay -- --test-threads=4 2>&1 | tee /tmp/exorcist-sandbox.log | grep -E '^test |test result'); then
     while read -r line; do
       name=$(echo "$line" | sed -E 's/^test ([a-z_]+) .*/\1/')
       if echo "$line" | grep -q ' ok$'; then row PASS "sandbox: $name" "matches model step by step"; else row FAIL "sandbox: $name" "-"; fi
