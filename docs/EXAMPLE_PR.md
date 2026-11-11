@@ -21,7 +21,7 @@ the depositor while the ledger keeps the credit.
 `exorcist check deposit-fixed` (exit code 1, the job fails):
 
 ```
-RESULT: VIOLATION (insolvent) at depth 6, 1720 states explored. Shortest attack trace:
+RESULT: VIOLATION (insolvent) at depth 6, 1720 states explored in 1 ms. Shortest attack trace:
 
 1. eve sends tx: token.ft_transfer_call(vault, 100, "notify hook") (+1 yocto)
      ledger: alice=100 eve=0 (total 100) | tokens: vault=100 alice=0 eve=100
@@ -37,7 +37,7 @@ RESULT: VIOLATION (insolvent) at depth 6, 1720 states explored. Shortest attack 
      ledger: alice=100 eve=100 (total 200) | tokens: vault=100 alice=0 eve=100   ⚠ INSOLVENT (ledger > tokens held)
 
 Witness theorem: out/deposit-fixed.witness.lean
-  ✓ checked by the Lean kernel (decide): this trace really violates the invariant
+  ✓ checked by the Lean kernel (decide): this trace really violates the property
 ```
 
 The unbounded proof stops compiling at the exact case that broke (`lake build`):

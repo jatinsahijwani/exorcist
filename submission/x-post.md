@@ -2,28 +2,32 @@
 
 **Main post**
 
-A NEAR contract can credit a deposit, have a later call fail, and watch the token refund it. The ledger keeps the credit: ghost funds.
+A NEAR contract credited deposits, an attacker failed the next call, the token refunded, the credits stayed: $3.8M in ghost funds.
 
-I built Exorcist at #NEARHackathon. It finds the attack trace in your contract model, or proves in Lean that none exists for any trace.
+Exorcist, built at #NEARHackathon, finds that attack by itself and proves the fix in Lean for every trace.
 
-Video ↓ Repo: <REPO_URL>
-
-@NEARProtocol @NearLegion @NearBuilders
+<REPO_URL> @NEARProtocol
 
 **Reply 1 (how it works)**
 
 How it works:
-• Lean model of NEAR async receipts and the NEP-141 refund flow
-• explores every receipt ordering and failure, prints the shortest attack, kernel-checks it
-• replays each trace against real Rust contracts in the NEAR sandbox
-• proves the fixed vault solvent for all traces
+• Lean model of NEAR async receipts + NEP-141 refunds
+• every ordering × failure explored, shortest attack kernel-checked
+• traces replayed on Rust contracts in the NEAR sandbox
+• MCP gate: AI agents deploy only what passes
+
+@NearLegion @NearBuilders
 
 **Reply 2 (question)**
 
-Question for NEAR builders: which cross-contract pattern in your contracts would you most want checked next? Callbacks after ft_transfer, NFT transfers with callbacks, or promise joins?
+NEAR builders: which cross-contract pattern in your contracts would you want checked next? Withdraw callbacks, NFT transfer-call, or promise joins? Reply and I'll model one.
 
 ---
 Notes
-- First line states the user problem; the NEAR role is concrete (async receipts, NEP-141 refunds, sandbox, NEAR AI Cloud for the optional proof loop).
-- Contains @NEARProtocol and #NEARHackathon (required); @NearLegion and @NearBuilders are optional.
-- Replace <REPO_URL> after the repo is public. Attach the video (screenshots alone are not enough for a local-only demo, per Q-012).
+- The first line states the user problem. NEAR's role is concrete: async receipts, NEP-141 refunds,
+  the sandbox, and NEAR AI Cloud for the optional AI loops.
+- @NEARProtocol and #NEARHackathon are required (main post); @NearLegion and @NearBuilders are optional (reply 1).
+- The incident was on Oct 1, 2026 (withdrawals Sept 29 – Oct 1); the funds were returned.
+- "Minimal model" is deliberate: we modelled the published mechanism, not the NEAR Intents contract.
+  Keep that wording if you edit the post.
+- Replace <REPO_URL> once the repo is public, and attach the video (Q-012).

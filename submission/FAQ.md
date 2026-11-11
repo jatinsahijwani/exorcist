@@ -41,19 +41,23 @@ including the attacker's own contracts and failures of any receipt. We still use
 replay is how we test the model itself.
 
 **7. How do I apply it to my contract?**
-Write the contract's methods as a model: each method is `state → call → (new state, emitted calls,
-return value)`, as in `Verifier/Models/Vault.lean`. Register it in `Registry.lean` with a scenario and
-the invariant, then run `exorcist check` to look for attacks. For an unbounded result, adapt the
-invariant in `Verifier/Proof/`; the structural lemmas carry over. Add the GitHub Action so every PR
-is checked.
+Run `exorcist new mycontract`. It scaffolds a model in which each method is `state → call →
+(new state, created promises, return value)`, about 20 lines for a deposit/withdraw contract. Then run
+`exorcist check mycontract` for a bounded search and `exorcist prove mycontract --bounded 4` for a
+kernel-checked bounded result. docs/WRITE-A-MODEL.md walks through it, including a real double-payout
+bug, and is tested end to end. An unbounded proof for a new contract still needs an invariant; the
+structural lemmas in `Verifier/Proof/` carry over. Add the GitHub Action so every PR is checked.
 
-**8. What does the AI loop do?**
+**8. What do the AI loops do?**
 `exorcist prove <model> --ai` sends the goal theorem with its proof removed to a model on NEAR AI
 Cloud. Lean checks each proposal, and errors go back to the model for up to N rounds. Proposals that
 change the statement or use `sorry`/`native_decide`/axioms are rejected before Lean runs. It is a
 convenience: the committed proofs are checked offline without any key, and nothing the AI produces
 is trusted unless the kernel accepts it. Today it targets the model-level theorems; the large
-invariant proof was written by hand with AI assistance.
+invariant proof was written by hand with AI assistance. `exorcist draft --from lib.rs` (experimental)
+has NEAR AI draft the model itself from Rust; `make drafts` compares each draft semantically with the
+hand-written model. Real drafts need a key and have not been generated yet; only the pipeline is tested,
+against a mock.
 
 **9. Isn't "any receipt may fail" unrealistic?**
 For the proof it is deliberately the strongest assumption: if the vault stays solvent when the
@@ -68,9 +72,11 @@ each at most once, in any order; every interleaving of ready receipts; failures 
 stated adversary; up to 10 steps. The CLI prints this with every result.
 
 **11. Would this have caught the Oct 1 NEAR Intents exploit? Does it verify the Intents contract?**
-It does not verify the Intents contract; we did not model it. The postmortem's mechanism (a
-notification made to fail, the token refunds, the ledger credit stays) is exactly `deposit-vulnerable`,
-and the explorer finds it in 5 steps. The postmortem also notes that monitoring never compared
+It does not verify the Intents contract; we did not model it. `incident-2026-10` is a minimal model,
+written from scratch, of the mechanism the postmortem describes: a depositor-chosen contract is
+notified, the notification is made to fail, the token refunds, the ledger credit stays. Asked only
+"can the attacker cash out more than she put in?", the explorer finds the full deposit → fail → refund →
+withdraw exploit in 26,191 states (~50 ms), and the fixed version is proven for all traces. The postmortem also notes that monitoring never compared
 aggregate internal balances with tokens held, which is the invariant Exorcist checks and proves.
 
 **12. Why Lean 4, why no Mathlib, why `decide`?**
@@ -78,6 +84,13 @@ Lean gives a small kernel and a computable language, so the same definitions run
 reasoned about in proofs. No Mathlib keeps a judge's build at about 2 minutes. `decide` makes the
 kernel itself re-run each concrete trace, while `native_decide` would trust the compiler; we use
 `decide` everywhere.
+
+**13. Why an MCP server, and why does it matter for security?**
+AI agents increasingly write and deploy contracts, and an agent with deploy rights will not notice an
+async accounting bug in its own code. The MCP gate gives the agent `exorcist_check` and
+`exorcist_prove`, whose results include `deploy_allowed`; the policy is "deploy only on true". The
+scripted test (`mcp/agent_gate_demo.py`) shows a vulnerable contract blocked and its fix allowed. The
+gate is only as good as the model, so a model the agent writes for itself must be reviewed by a human.
 
 **Bonus: what about per-user correctness, not just solvency?**
 Solvency is the property whose violation drains other users, and the one the exploit broke. The

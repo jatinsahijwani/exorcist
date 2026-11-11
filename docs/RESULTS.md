@@ -8,6 +8,8 @@ Regenerate everything with `make demo`.
 
 | Model | Contract | Result | Label | Kernel-checked artefact |
 |---|---|---|---|---|
+| `incident-2026-10` | **minimal model of the Oct 2026 NEAR Intents mechanism, not their contract**: credits on deposit, notifies a depositor-chosen contract, returns its promise | **full exploit found automatically**: eve cashes out 200 from a 100 deposit (26,191 states, ~45 ms) | found at depth 8 | generated witness; `Witness/Incident.lean`: `incident_repeated_theft` (two failed deposits → eve 300, pool backed by 100) |
+| `incident-2026-10-fixed` | credits only after the notification succeeded | no violation (1,289,374 states); **solvent** | bounded to depth 10; **proven for all traces** | `concrete_fixed_solvent_from`; `incident_repeated_fixed_safe` |
 | `deposit-vulnerable` | credits in `ft_on_transfer`, returns the hook's promise | **attack found**: insolvent after 5 steps (444 states) | found within depth 10 | `Witness/GhostFunds.lean`: `ghost_funds_insolvent`, `ghost_funds_theft` |
 | `deposit-fixed` | credits in `after_notify`, only on success | no violation (1,044,233 states) | bounded to depth 10 | — |
 | `deposit-fixed` | same | **solvent** | **proven for all traces** | `Proof/Theorem.lean`: `fixed_vault_solvent_forever` |
@@ -64,6 +66,15 @@ balance, every reachable state has tokens held ≤ Σ ledger + in-flight amounts
 whenever nothing is in flight. `concrete_no_stuck` instantiates it for `withdraw-fixed` and
 `noreturn-fixed`. Its invariant adds exact pairing: every pending callback with potential waits on
 exactly one in-flight source of the same amount.
+
+## Agent gate, user models, drafts
+
+| What | Result | Label |
+|---|---|---|
+| MCP agent gate (`mcp/agent_gate_demo.py`) | `withdraw-vulnerable` blocked (attack trace returned), `withdraw-fixed` allowed after `check` + `prove` | tested in CI and `make demo` |
+| `exorcist new` walkthrough (`scripts/test-walkthrough.sh`) | scaffold clean (8,251,651 states) and kernel-checked to depth 4; the "debit on success" variant pays alice twice (found at depth 8) | tested in CI |
+| `exorcist prove <model> --bounded N` | the bounded search re-run inside the kernel (`decide +kernel`) | kernel-checked, bounded |
+| `exorcist draft` (EXPERIMENTAL) | pipeline tested against a mock API; **real NEAR AI drafts not generated yet (no key)** | experimental |
 
 ## Sandbox validation (near-workspaces 0.24, local NEAR sandbox)
 
