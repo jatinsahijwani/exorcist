@@ -1,30 +1,23 @@
-# Task list (from BRIEF.md Day 1–4 plan)
+# Task list — Exorcist (go mode, single session, 11 Nov 2026)
 
-## Day 1 — go/no-go (Wed 11 Nov)
-- [x] Verify NEP-141 reference impl (near-sdk-rs) + NEAR receipt semantics → docs/SEMANTICS.md
-- [x] Lean project skeleton (pinned v4.34.0, no Mathlib)
-- [x] Generic async semantics: receipts, promises, callbacks, promise_return, no cross-receipt rollback, deposit refunds
-- [x] NEP-141 token model (ft_transfer, ft_transfer_call, ft_resolve_transfer exactly as reference)
-- [x] Deposit-ledger vault: vulnerable + fixed
-- [x] Bounded explorer (IDDFS over orderings × failures) + readable trace
-- [x] Kernel-checked witness theorem for the ghost-funds trace
-- [x] Report go/no-go to Jatin
-
-## Day 2
-- [ ] Explorer: state dedup (visited set) to push depth past 10
-- [ ] Trace text: say "refunds 100 vault → eve" on resolve steps
-- [ ] Inductive invariant proof (fixed vault, all traces, any receipt may fail)
-- [ ] Readable traces polish
-- [ ] near-workspaces sandbox: Rust token + vulnerable/fixed vault; replay trace; attack fails on fixed
-
-## Day 3
-- [ ] Withdraw / no-restore pattern (vulnerable + fixed) + proof
-- [ ] CLI `check <model> --depth N`, `prove <model>` (+ optional NEAR AI Cloud repair loop, key from env)
-- [ ] GitHub Action failing PRs on violation
-- [ ] Testnet replay script (testnet only)
-- [ ] Verify pitch facts by web search (exploit, leadership statement, PutnamBench) — flag unconfirmed
-- [ ] README (machine + human readable, honest limits, libraries), MIT LICENSE
-
-## Day 4
-- [ ] `make demo`, ~2-min video script, X post draft
-- [ ] Submission payload → show Jatin, wait for yes (no submit/push/public without explicit yes)
+- [x] Day-1 core: semantics, NEP-141 token, vault models, bounded explorer, kernel-checked witness
+- [x] Private GitHub repo, small conventional commits, push after each
+- [x] Rename CLI to `exorcist`
+- [x] 1. Fixes not vacuous: liveness theorems (decide) + explorer liveness goals for every fixed config
+- [x] 2. Honest bounds in CLI output and docs/RESULTS.md (depth, actors, amounts, adversary)
+- [x] 3. Unbounded proof: `fixed_vault_solvent_forever` (any accounts, amounts, failures, attacker code); axioms printed
+- [x] 4. Withdraw-without-restore pattern: trace + witness (vulnerable); liveness + bounded + solvency proof (fixed)
+- [ ] 4b. Unbounded "no stuck funds" proof for withdraw-fixed (currently bounded only) — stretch
+- [x] 5. No-return-value variant: named finding, trace + witness
+- [x] 6. `exorcist check --json`, readable trace, auto witness file, exit codes
+- [x] 7. Sandbox: Rust token/vault/hook, 8 replays + negative control, all match the model
+- [x] 8. `exorcist prove` offline + `--ai` NEAR AI Cloud loop (live round untested: no key)
+- [x] 9. GitHub workflow + reusable action.yml + example vulnerable PR (#1, check fails as intended)
+- [x] 10. Testnet replay script (not run; needs Jatin's testnet account + key)
+- [x] 11. make demo / make quick, pinned toolchains (lean-toolchain, rust-toolchain.toml, Cargo.lock)
+- [x] 12. Facts verified with sources (leadership "release process" claim NOT confirmed → softened)
+- [x] 13. README, SEMANTICS, RESULTS, ARCHITECTURE, EXAMPLE_PR, LICENSE
+- [ ] 13b. Q-015 disclosure line — need Jatin's other project name
+- [x] 14. submission/: FAQ, demo-script, x-post, outreach (payload.json after Jatin's answers)
+- [ ] 15. Fresh-clone subagent check of README + make demo; re-read live HACKATHON.md
+- [ ] Jatin: answers for payload fields; yes for public repo / X post / submission
