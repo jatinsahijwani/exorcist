@@ -64,6 +64,19 @@ def dfs (sc : Scenario S α C) : Nat → World S α C → List (Tx α C) → Lis
             let (r, m) := dfs sc d w' menu' (s :: acc)
             (r, n + 1 + m)
 
+/-- Search for a reachable state satisfying `goal` (used for liveness: "honest use still works"). -/
+def reach (sys : System S α C) (init : World S α C) (menu : List (Tx α C)) (goal : World S α C → Bool)
+    (depth : Nat) : SearchResult α C :=
+  explore' { sys, init, menu, ok := fun w => !goal w } depth
+where
+  explore' (sc : Scenario S α C) (depth : Nat) : SearchResult α C := Id.run do
+    let mut visited := 0
+    for d in [1:depth+1] do
+      let (r, n) := dfs sc d sc.init sc.menu []
+      visited := visited + n
+      if let some t := r then return { trace := some t, visited, depth := d }
+    return { trace := none, visited, depth }
+
 /-- Iterative deepening up to `depth`. -/
 def explore (sc : Scenario S α C) (depth : Nat) : SearchResult α C :=
   go 1 0

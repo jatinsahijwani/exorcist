@@ -11,3 +11,4 @@ nep-0141.md
 submission/payload.json
 .env
 *.key
+out/

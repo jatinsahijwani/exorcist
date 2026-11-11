@@ -1,9 +1,12 @@
-name = "verifier"
+name = "exorcist"
 version = "0.1.0"
 defaultTargets = ["Verifier", "exorcist"]
 
 [[lean_lib]]
 name = "Verifier"
+
+[[lean_lib]]
+name = "Exorcist"
 
 [[lean_exe]]
 name = "exorcist"
