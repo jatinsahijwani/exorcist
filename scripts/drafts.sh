@@ -7,6 +7,8 @@
 # Needs NEARAI_API_KEY. OUT (default drafts/) selects the output directory.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# optional: NEARAI_API_KEY=... in a local .env (gitignored, never committed)
+if [ -f .env ]; then set -a; . ./.env; set +a; fi
 export PATH="$HOME/.elan/bin:$PATH"
 OUT="${OUT:-drafts}"
 E=./.lake/build/bin/exorcist
