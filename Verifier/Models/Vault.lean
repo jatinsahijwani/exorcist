@@ -60,7 +60,8 @@ def vaultHandle (cfg : Config) (T : α) (ctx : Ctx α) (c : Call α) (s : St α)
     if ctx.pred ≠ ctx.self then .panic "private method" else
     match ctx.input with
     | some (.ok _) => .ok { s with ledger := s.ledger.add who amt } [] (.val (.nat 0))
-    | some .failed => .ok s [] (.val (.nat amt))   -- all unused: token refunds, nothing credited
+    -- notifications are best-effort: credit the deposit even if the hook failed
+    | some .failed => .ok { s with ledger := s.ledger.add who amt } [] (.val (.nat amt))
     | none => .panic "no promise result"
   | .withdraw amt =>
     if amt = 0 then .panic "amount must be positive" else
