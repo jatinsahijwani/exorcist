@@ -17,7 +17,7 @@
 - [x] 11. make demo / make quick, pinned toolchains (lean-toolchain, rust-toolchain.toml, Cargo.lock)
 - [x] 12. Facts verified with sources (leadership "release process" claim NOT confirmed → softened)
 - [x] 13. README, SEMANTICS, RESULTS, ARCHITECTURE, EXAMPLE_PR, LICENSE
-- [ ] 13b. Q-015 disclosure line — need Jatin's other project name
+- [x] 13b. Q-015: no other project (nothing to disclose)
 - [x] 14. submission/: FAQ, demo-script, x-post, outreach (payload.json after Jatin's answers)
 - [x] 15. Fresh-clone subagent check (clean; wording fixes applied); live HACKATHON.md unchanged (11 Nov)
 - [ ] Jatin: answers for payload fields; yes for public repo / X post / submission
