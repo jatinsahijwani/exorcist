@@ -100,8 +100,25 @@ def check (o : Opts) : IO UInt32 := do
     if o.verify then
       if ← verifyWitness file then say "  ✓ checked by the Lean kernel (decide): this trace really violates the invariant"
       else do IO.eprintln "  ✗ witness did not check — this is a bug in exorcist"; code := 5
+    let txs0 := submitsOf t
+    let injs0 := injectionsOf sys init t
+    let (_, vulnEnd) := replayJson m.cfg txs0 injs0
+    -- for ghost funds, also replay the cash-out: eve withdraws the credited 100
+    let cashOut := !solvent final
+    let txs := txs0 ++ (if cashOut then [(.eve, .vault, .withdraw 100, 0)] else [])
+    let injs := injs0 ++ (if cashOut then [[]] else [])
+    let (vulnReplay, vulnEnd2) := replayJson m.cfg txs injs
+    let fixedCfg : Config := { m.cfg with depositFixed := true, withdrawFixed := true }
+    let (fixedReplay, fixedEnd) := replayJson fixedCfg txs injs
+    if jState vulnEnd != jState final then
+      IO.eprintln "  ✗ internal: transaction-level replay disagrees with the trace"; code := 5
+    say s!"\nSame transactions, run to completion per transaction (what the sandbox replays):"
+    if cashOut then say "  (then eve withdraws 100)"
+    say s!"  on this contract:   {snapshot vulnEnd2}"
+    say s!"  on the fixed vault: {snapshot fixedEnd}"
     violationJson := jObj [("kind", jStr (violationKind final)), ("depth", toString r.depth),
-                           ("witness_file", jStr file), ("trace", traceJson rs)]
+                           ("witness_file", jStr file), ("trace", traceJson rs),
+                           ("replay_vulnerable", vulnReplay), ("replay_fixed", fixedReplay)]
     if code == 0 then code := 1
   say "\nliveness (no forced failures — honest use must still work):"
   let mut liveJson : List String := []
@@ -109,8 +126,9 @@ def check (o : Opts) : IO UInt32 := do
     match lr.trace with
     | some t =>
       say s!"  ✓ reachable in {lr.depth} steps: {g.name}"
+      let (rep, _) := replayJson m.cfg (submitsOf t) ((submitsOf t).map fun _ => [])
       liveJson := liveJson ++ [jObj [("goal", jStr g.name), ("reachable", "true"),
-                                     ("trace", traceJson (rows honest init t))]]
+                                     ("trace", traceJson (rows honest init t)), ("replay", rep)]]
     | none =>
       say s!"  ✗ NOT reachable within 12 steps: {g.name}"
       liveJson := liveJson ++ [jObj [("goal", jStr g.name), ("reachable", "false"), ("trace", "[]")]]

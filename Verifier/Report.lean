@@ -200,3 +200,101 @@ def witnessSource (m : Model) (t : Tr) (final : W) : String :=
   s!"end NearAsync.Vault.Generated\n"
 
 end NearAsync.Vault
+
+/-! ## Transaction-level replay (for the sandbox)
+
+The sandbox cannot schedule individual receipts or fail one on demand. So a trace is replayed
+per transaction: each transaction runs to completion, with failures injected by kind
+(`hook.on_deposit` → the hook is put in panic mode; `token.ft_transfer` → the receiver
+unregisters from the token first). Lean computes the expected outcome with a deterministic
+scheduler: always the oldest ready receipt, failing it iff it is an injected kind. -/
+
+namespace NearAsync.Vault
+
+abbrev Inject := List (Acct × String)
+
+def injected (inj : Inject) (r : Receipt Acct (Call Acct)) : Bool :=
+  match r.action with
+  | .call c _ => inj.contains (r.recv, methodName c)
+  | .refund _ => false
+
+/-- Run all pending receipts to completion (oldest ready first). Records receipt outcomes. -/
+def settle (cfg : Config) (inj : Inject) : Nat → W → List (Acct × String × String) → W × List (Acct × String × String)
+  | 0, w, log => (w, log.reverse)
+  | fuel + 1, w, log =>
+    let sys : System (St Acct) Acct (Call Acct) := { dispatch := dispatch cfg, canFail := injected inj }
+    match w.pending.find? (fun r => (readiness w r).isSome) with
+    | none => (w, log.reverse)
+    | some r =>
+      let forced := injected inj r
+      let st : Step Acct (Call Acct) := if forced then .fail r.id else .run r.id
+      match step sys w st with
+      | none => (w, log.reverse)
+      | some w' =>
+        let entry := match r.action with
+          | .call c _ =>
+            let failed := lookupResult w'.results r.id == some PResult.failed
+            [(r.recv, methodName c, if failed then "failed" else "ok")]
+          | .refund _ => []
+        settle cfg inj fuel w' (entry ++ log)
+
+/-- Injections per transaction, computed by replaying the trace and looking up failed receipts. -/
+def injectionsOf (sys : System (St Acct) Acct (Call Acct)) (w0 : W) (t : Tr) : List Inject :=
+  go w0 t [] 0 []
+where
+  go (w : W) : Tr → List (Nat × Nat) → Nat → List Inject → List Inject
+    | [], _, _, acc => acc
+    | s :: rest, txOf, ntx, acc =>
+      match step sys w s with
+      | none => acc
+      | some w' =>
+        let fresh := (List.range (w'.nextId - w.nextId)).map (w.nextId + ·)
+        match s with
+        | .submit .. =>
+          go w' rest (fresh.map (·, ntx) ++ txOf) (ntx + 1) (acc ++ [[]])
+        | .run rid =>
+          let tx := ((txOf.find? (·.1 == rid)).map (·.2)).getD 0
+          go w' rest (fresh.map (·, tx) ++ txOf) ntx acc
+        | .fail rid =>
+          let tx := ((txOf.find? (·.1 == rid)).map (·.2)).getD 0
+          let acc' := match findPending w.pending rid with
+            | some { recv, action := .call c _, .. } =>
+              acc.zipIdx.map fun (inj, i) => if i == tx then inj ++ [(recv, methodName c)] else inj
+            | _ => acc
+          go w' rest (fresh.map (·, tx) ++ txOf) ntx acc'
+
+def submitsOf (t : Tr) : List (Acct × Acct × Call Acct × Nat) :=
+  t.filterMap fun s => match s with
+    | .submit sg rv c d => some (sg, rv, c, d)
+    | _ => none
+
+def vaultWasm (cfg : Config) : String :=
+  if !cfg.depositFixed then "vault_deposit_vulnerable.wasm"
+  else if !cfg.withdrawFixed then "vault_withdraw_vulnerable.wasm"
+  else "vault_fixed.wasm"
+
+def hookMode (cfg : Config) : String :=
+  match cfg.hookReturns with | .unit => "none" | .nat _ => "ok"
+
+/-- Replay the transactions of trace `t` (found under `cfgFrom`) against configuration `cfg`. -/
+def replayJson (cfg : Config) (txs : List (Acct × Acct × Call Acct × Nat)) (injs : List Inject) : String × W :=
+  let step1 (acc : List String × W) (p : (Acct × Acct × Call Acct × Nat) × Inject) : List String × W :=
+    let (js, w) := acc
+    let ((sg, rv, c, d), inj) := p
+    let sys : System (St Acct) Acct (Call Acct) := { dispatch := dispatch cfg, canFail := injected inj }
+    match step sys w (.submit sg rv c d) with
+    | none => (js, w)
+    | some w1 =>
+      let (w2, log) := settle cfg inj 100 w1 []
+      let j := jObj [ ("signer", jStr sg.name), ("receiver", jStr rv.name), ("method", jStr (methodName c)),
+                      ("args", jCallArgs c), ("deposit_yocto", toString d),
+                      ("inject", jArr (inj.map fun (a, m) => jObj [("receiver", jStr a.name), ("method", jStr m)])),
+                      ("receipts", jArr (log.map fun (a, m, o) =>
+                          jObj [("receiver", jStr a.name), ("method", jStr m), ("outcome", jStr o)])),
+                      ("state_after", jState w2) ]
+      (js ++ [j], w2)
+  let (js, wEnd) := (txs.zip injs).foldl step1 ([], init)
+  (jObj [ ("vault_wasm", jStr (vaultWasm cfg)), ("hook_mode", jStr (hookMode cfg)),
+          ("txs", jArr js) ], wEnd)
+
+end NearAsync.Vault

@@ -12,3 +12,5 @@ submission/payload.json
 .env
 *.key
 out/
+sandbox/target/
+sandbox/res/
