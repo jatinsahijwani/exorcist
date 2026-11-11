@@ -21,3 +21,12 @@
 - [x] 14. submission/: FAQ, demo-script, x-post, outreach (payload.json after Jatin's answers)
 - [x] 15. Fresh-clone subagent check (clean; wording fixes applied); live HACKATHON.md unchanged (11 Nov)
 - [ ] Jatin: answers for payload fields; yes for public repo / X post / submission
+
+## Round 2 (make the submission stronger)
+- [x] 1. Incident reconstruction: `incident-2026-10` (minimal model, not their contract) found automatically (depth 8, 26,191 states); fixed version proven; in make demo / README / demo script
+- [x] 2. Agent gate: MCP server (exorcist_check / exorcist_prove), docs/AGENT-GATE.md, tested (make test-mcp, CI, demo)
+- [x] 3. `exorcist new` + docs/WRITE-A-MODEL.md; walkthrough tested end to end (scripts/test-walkthrough.sh, CI); `prove --bounded N` kernel-checked
+- [~] 4. `exorcist draft` EXPERIMENTAL: implemented + assessment harness + offline mock test; REAL DRAFTS BLOCKED on NEARAI_API_KEY
+- [x] 5. Animated demo (asciicast + SVG) at README top; static results page docs/site + manual Pages workflow (Pages not enabled)
+- [x] 6. FAQ, demo script, x-post, what-we-built updated
+- [ ] 7. Fresh-clone check (new subagent)
