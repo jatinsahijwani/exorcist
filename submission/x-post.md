@@ -6,7 +6,7 @@ A NEAR contract credited deposits, an attacker failed the next call, the token r
 
 Exorcist, built at #NEARHackathon, finds that attack by itself and proves the fix in Lean for every trace.
 
-<REPO_URL> @NEARProtocol
+https://github.com/jatinsahijwani/exorcist @NEARProtocol
 
 **Reply 1 (how it works)**
 
@@ -30,4 +30,4 @@ Notes
 - The incident was on Oct 1, 2026 (withdrawals Sept 29 – Oct 1); the funds were returned.
 - "Minimal model" is deliberate: we modelled the published mechanism, not the NEAR Intents contract.
   Keep that wording if you edit the post.
-- Replace <REPO_URL> once the repo is public, and attach the video (Q-012).
+- Replace https://github.com/jatinsahijwani/exorcist once the repo is public, and attach the video (Q-012).

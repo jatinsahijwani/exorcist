@@ -5,7 +5,7 @@
 > Hi! I built Exorcist for NEAR HACKATHON. It checks whether a contract can lose funds when a
 > cross-contract call fails: the ft_transfer_call refund + early ledger credit pattern behind the
 > Oct 1 Intents incident. It prints a step-by-step attack trace, or a Lean proof that the ledger
-> stays backed for every trace, and replays traces in the NEAR sandbox. Repo: <REPO_URL>
+> stays backed for every trace, and replays traces in the NEAR sandbox. Repo: https://github.com/jatinsahijwani/exorcist
 > Would you try `make quick` (about 2 min) and tell me what's confusing? I'd also love one real
 > callback pattern from your contracts to model next.
 
@@ -17,7 +17,7 @@
 > accounts, amounts, adversarial code, any receipt failing) that a fixed deposit vault stays solvent.
 > No sorry, no native_decide; the model is cross-checked against real contracts in the NEAR sandbox.
 > I'd value 10 minutes of criticism, especially on the semantics assumptions in docs/SEMANTICS.md.
-> <REPO_URL>
+> https://github.com/jatinsahijwani/exorcist
 
 ## Judges (only if they reach out first)
 
