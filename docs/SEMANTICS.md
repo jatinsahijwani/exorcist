@@ -32,3 +32,34 @@ Checked on 2026-11-11 against near-sdk-rs 5.30.1 (`near-contract-standards/src/f
   (every call receipt may fail); found attack traces use only failures of attacker-owned contracts.
 - Storage registration (NEP-145) is not modelled: every account is treated as registered.
 - Balances are unbounded naturals (no u128 overflow).
+- The hook in the explorer returns `"0"` by default; the `noreturn-*` models use a hook that returns
+  nothing. Other contracts in the proof are arbitrary code (they cannot write token/vault storage).
+- Contract accounts (`token`, `vault`) never sign transactions (nobody holds their keys).
+
+## Validation against real NEAR (sandbox)
+
+`sandbox/` contains Rust versions of the token, the hook and the three vault variants, written for
+this project. `sandbox/tests/replay.rs` replays every exported trace in a local NEAR sandbox
+(near-workspaces 0.24) and compares, after every transaction, all token balances, all ledger entries,
+and the set of receipts that ran with their success/failure, against the Lean model.
+
+Result on 2026-11-11: **all 8 replays matched; no model change was needed.** A negative-control
+test checks that the harness does fail when the prediction is wrong.
+
+How model failures are reproduced on the real chain:
+
+| Model step | Sandbox |
+|---|---|
+| `FAIL hook.on_deposit` | eve switches her hook to `panic` mode before the transaction |
+| `FAIL token.ft_transfer` (vault payout) | the receiver unregisters from the token first, so the transfer panics ("not registered"), as with the reference token |
+| hook returns nothing (`noreturn-*`) | the hook runs in `none` mode (succeeds, returns no value) |
+
+What the sandbox comparison does not cover: NEAR (yocto) balances and gas are not compared; the
+Rust token's simplified registration (`register`/`unregister`) and its burn-on-deleted-sender path are
+not part of the Lean model.
+
+## Observations
+
+- With the vulnerable vault, a hook that **returns nothing** is enough to lose funds — no failure is
+  involved: the token cannot parse the chain's result as a number and refunds everything
+  (`noreturn-vulnerable`, confirmed in the sandbox).
