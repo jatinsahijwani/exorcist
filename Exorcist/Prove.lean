@@ -19,7 +19,11 @@ namespace Exorcist
 
 open Lean NearAsync NearAsync.Vault
 
-def baseUrl : String := "https://cloud-api.near.ai/v1"
+def defaultBaseUrl : String := "https://cloud-api.near.ai/v1"
+
+/-- NEAR AI Cloud; `EXORCIST_AI_BASE_URL` overrides it (used by the offline mock test). -/
+def getBaseUrl : IO String := do
+  return (← IO.getEnv "EXORCIST_AI_BASE_URL").getD defaultBaseUrl
 
 /-- Preferred models, used only if present in the live `/v1/models` list. -/
 def preferred : List String :=
@@ -105,6 +109,7 @@ def chat (key model : String) (msgs : List (String × String)) : IO (Except Stri
   let hdr := "out/ai/.auth-header"
   IO.FS.writeFile hdr s!"Authorization: Bearer {key}\n"
   let _ ← IO.Process.output { cmd := "chmod", args := #["600", hdr] }
+  let baseUrl ← getBaseUrl
   let out ← IO.Process.output { cmd := "curl", args := #["-sS", "-m", "600",
     s!"{baseUrl}/chat/completions", "-H", "Content-Type: application/json", "-H", s!"@{hdr}",
     "--data", "@out/ai/request.json"] }
@@ -119,9 +124,10 @@ def chat (key model : String) (msgs : List (String × String)) : IO (Except Stri
       | .error _ => return .error s!"no content in response: {out.stdout.take 300}"
     | .error _ => return .error s!"API error: {out.stdout.take 500}"
 
-def pickModel (o : ProveOpts) : IO (Except String String) := do
-  if let some m := o.aiModel then return .ok m
+def pickModelId (explicit : Option String) : IO (Except String String) := do
+  if let some m := explicit then return .ok m
   if let some m ← IO.getEnv "NEARAI_MODEL" then return .ok m
+  let baseUrl ← getBaseUrl
   let out ← IO.Process.output { cmd := "curl", args := #["-sS", "-m", "30", s!"{baseUrl}/models"] }
   match Json.parse out.stdout with
   | .error _ => return .error "could not list models; pass --ai-model"
@@ -142,10 +148,10 @@ def system : String :=
   "solvent w = true`, and the general `NearAsync.Vault.Proof.fixed_vault_solvent_forever`."
 
 def aiLoop (m : Model) (o : ProveOpts) (key : String) : IO UInt32 := do
-  let model ← match ← pickModel o with
+  let model ← match ← pickModelId o.aiModel with
     | .ok x => pure x
     | .error e => do IO.eprintln e; return 2
-  IO.println s!"AI proof repair on NEAR AI Cloud ({baseUrl}), model {model}, up to {o.rounds} rounds"
+  IO.println s!"AI proof repair on NEAR AI Cloud ({← getBaseUrl}), model {model}, up to {o.rounds} rounds"
   let goal := goalHeader m ++ "  sorry\n"
   let mut msgs : List (String × String) := [("system", system), ("user", goal)]
   for i in [1:o.rounds+1] do

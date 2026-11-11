@@ -1,6 +1,7 @@
 import Verifier.Report
 import Exorcist.Prove
 import Exorcist.New
+import Exorcist.Draft
 
 open NearAsync NearAsync.Vault
 
@@ -32,7 +33,8 @@ def usage : String :=
   "  exorcist list\n" ++
   "  exorcist check <model> [--depth N] [--json [FILE]] [--emit-lean FILE] [--no-verify]\n" ++
   "  exorcist prove <model> [--json] [--bounded N] [--ai] [--rounds N] [--ai-model ID]\n" ++
-  "  exorcist new <name>          scaffold your own contract model (docs/WRITE-A-MODEL.md)\n\n" ++
+  "  exorcist new <name>          scaffold your own contract model (docs/WRITE-A-MODEL.md)\n" ++
+  "  exorcist draft --from <lib.rs> --role token|vault|hook   EXPERIMENTAL: NEAR AI drafts a model\n\n" ++
   "models: " ++ ", ".intercalate (allModels.map (·.name))
 
 def menuText (m : Model) : List String :=
@@ -170,4 +172,5 @@ def main (args : List String) : IO UInt32 := do
     | .error e => do IO.eprintln s!"{e}\n\n{usage}"; return 2
   | "prove" :: rest => Exorcist.prove rest
   | ["new", name] => Exorcist.newModel name
+  | "draft" :: rest => Exorcist.draft rest
   | _ => do IO.println usage; return (if args.isEmpty || args == ["--help"] then 0 else 2)

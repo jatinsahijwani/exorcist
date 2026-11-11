@@ -3,7 +3,7 @@ export PATH := $(HOME)/.elan/bin:$(HOME)/.cargo/bin:$(PATH)
 SANDBOX_MODELS := deposit-vulnerable deposit-fixed noreturn-vulnerable noreturn-fixed withdraw-vulnerable withdraw-fixed
 DEPTH ?= 10
 
-.PHONY: demo quick build check prove traces sandbox wasm clean test-mcp
+.PHONY: demo quick build check prove traces sandbox wasm clean test-mcp drafts test-draft test-walkthrough
 
 demo:            ## build, find bugs, check witnesses, prove fixes, sandbox replay, summary
 	./scripts/demo.sh
@@ -36,3 +36,12 @@ clean:
 
 test-mcp: build   ## MCP server: an agent is blocked from deploying the vulnerable vault, allowed after the fix
 	python3 mcp/agent_gate_demo.py
+
+drafts: build     ## EXPERIMENTAL: NEAR AI drafts Lean models of the Rust contracts (needs NEARAI_API_KEY)
+	scripts/drafts.sh
+
+test-draft: build ## offline test of the draft pipeline against a mock API
+	scripts/test-draft.sh
+
+test-walkthrough: build ## docs/WRITE-A-MODEL.md, end to end, in a throwaway copy
+	scripts/test-walkthrough.sh

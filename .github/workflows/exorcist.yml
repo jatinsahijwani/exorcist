@@ -22,6 +22,10 @@ jobs:
         run: |
           export PATH="$HOME/.elan/bin:$PATH"
           scripts/test-walkthrough.sh
+      - name: Draft pipeline (offline, mock API)
+        run: |
+          export PATH="$HOME/.elan/bin:$PATH"
+          scripts/test-draft.sh
       - name: Agent gate (MCP server) test
         run: |
           export PATH="$HOME/.elan/bin:$PATH"
