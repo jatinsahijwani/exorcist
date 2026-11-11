@@ -31,10 +31,10 @@ runs:
           curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
         fi
         echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-    - name: Build models and proofs
+    - name: Build the exorcist CLI and the models
       shell: bash
       working-directory: ${{ inputs.path != '' && inputs.path || github.action_path }}
-      run: lake build
+      run: lake build exorcist
     - name: Check (bounded search, fails on any violation)
       shell: bash
       working-directory: ${{ inputs.path != '' && inputs.path || github.action_path }}
@@ -53,6 +53,11 @@ runs:
           fi
         done
         exit $status
+    - name: Build and kernel-check all proofs and witness theorems
+      if: inputs.prove == 'true'
+      shell: bash
+      working-directory: ${{ inputs.path != '' && inputs.path || github.action_path }}
+      run: lake build
     - name: Prove (unbounded, kernel-checked)
       if: inputs.prove == 'true'
       shell: bash

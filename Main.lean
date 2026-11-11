@@ -1,4 +1,3 @@
-import Verifier
 import Verifier.Report
 import Exorcist.Prove
 
