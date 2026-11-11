@@ -60,7 +60,7 @@ def models : List Model :=
     { name := "withdraw-fixed", pattern := "withdraw without restore",
       summary := "restores the ledger in after_withdraw when ft_transfer failed",
       cfg := {}, adv := .nonCallback, vulnerable := false,
-      proof := some "NearAsync.Vault.Proof.concrete_fixed_solvent (solvency; no-stuck-funds is bounded only)" } ]
+      proof := some "NearAsync.Vault.Proof.concrete_fixed_solvent + concrete_no_stuck" } ]
 
 def findModel (n : String) : Option Model := models.find? (·.name == n)
 

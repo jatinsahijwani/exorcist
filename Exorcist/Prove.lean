@@ -53,8 +53,22 @@ def goalHeader (m : Model) : String :=
 
 def committedProof : String := "  exact Proof.concrete_fixed_solvent _ rfl _ tr hsg w hrun\n"
 
+/-- Models whose adversary fails only non-callback receipts also get the no-stuck-funds theorem. -/
+def noStuckApplies (m : Model) : Bool := m.adv == .nonCallback || m.adv == .none
+
+def noStuckGoal (m : Model) : String :=
+  s!"\n/-- {m.name}: whenever nothing is in flight, every token the vault holds is owed to someone\n" ++
+  s!"(no plain `ft_transfer` to the vault; only non-callback receipts fail). -/\n" ++
+  s!"theorem {m.name.replace "-" "_"}_no_stuck_all_traces (tr : Tr)\n" ++
+  s!"    (htx : Proof.honestTxs Acct.token Acct.vault tr) (w : W)\n" ++
+  s!"    (hrun : run (system {leanCfg m.cfg} {leanAdv m.adv}) init tr = some w) : noStuck w = true :=\n" ++
+  s!"  Proof.concrete_no_stuck _ rfl rfl _ (fun r h => by simpa [canFail] using h) tr htx w hrun\n"
+
 def axiomsFooter (m : Model) : String :=
-  s!"\n#print axioms {theoremName m}\n#print axioms NearAsync.Vault.Proof.fixed_vault_solvent_forever\n"
+  s!"\n#print axioms {theoremName m}\n#print axioms NearAsync.Vault.Proof.fixed_vault_solvent_forever\n" ++
+  (if noStuckApplies m then
+    s!"#print axioms {m.name.replace "-" "_"}_no_stuck_all_traces\n#print axioms NearAsync.Vault.Proof.fixed_vault_no_stuck_funds\n"
+   else "")
 
 def runLean (file : String) : IO (Bool × String) := do
   let lake ← do
@@ -170,7 +184,7 @@ def prove (args : List String) : IO UInt32 := do
     | some key => return ← aiLoop m o key
   IO.FS.createDirAll "out"
   let file := s!"out/prove-{m.name}.lean"
-  IO.FS.writeFile file (goalHeader m ++ committedProof ++ axiomsFooter m)
+  IO.FS.writeFile file (goalHeader m ++ committedProof ++ (if noStuckApplies m then noStuckGoal m else "") ++ axiomsFooter m)
   IO.println s!"model:     {m.name} — {m.pattern}"
   IO.println s!"statement: for EVERY trace from init (any length, any interleaving), adversary: {m.adv.describe},"
   IO.println s!"           transactions from any non-contract account: Σ ledger ≤ tokens held by the vault"
@@ -180,11 +194,12 @@ def prove (args : List String) : IO UInt32 := do
   if !ok then
     IO.eprintln s!"✗ Lean rejected the committed proof:\n{out}"
     return 1
-  IO.println s!"RESULT:    ✓ PROVEN FOR ALL TRACES (checked by the Lean kernel now, file {file})"
+  IO.println s!"RESULT:    ✓ PROVEN FOR ALL TRACES: solvent (checked by the Lean kernel now, file {file})"
+  if noStuckApplies m then
+    IO.println "           ✓ PROVEN FOR ALL TRACES: no stuck funds (Proof.fixed_vault_no_stuck_funds; assumes no plain"
+    IO.println "             ft_transfer to the vault and only non-callback receipts fail)"
   for l in out.splitOn "\n" do
     if l.startsWith "'" then IO.println s!"axioms:    {l}"
-  if m.name == "withdraw-fixed" then
-    IO.println "note:      'no stuck funds' for the withdraw pattern is bounded only (exorcist check); the proof covers solvency."
   return 0
 
 end Exorcist
