@@ -55,9 +55,9 @@ def boundsJson (m : Model) (depth : Nat) : String :=
 /-- Kernel-check a generated witness file with the pinned Lean (via lake). -/
 def verifyWitness (file : String) : IO Bool := do
   try
-    let out ← IO.Process.output { cmd := "lake", args := #["env", "lean", file] }
-    if out.exitCode == 0 then return true
-    IO.eprintln out.stdout; IO.eprintln out.stderr; return false
+    let (ok, out) ← Exorcist.runLean file
+    if ok then return true
+    IO.eprintln out; return false
   catch e =>
     IO.eprintln s!"could not run lake to check the witness: {e}"; return false
 

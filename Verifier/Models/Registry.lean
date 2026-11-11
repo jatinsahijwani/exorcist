@@ -46,21 +46,21 @@ def models : List Model :=
     { name := "deposit-fixed", pattern := "ghost funds (notify failure)",
       summary := "credits only in the after_notify callback, when the notification succeeded",
       cfg := {}, adv := .attackerCode, vulnerable := false,
-      proof := some "NearAsync.Vault.Proof.fixed_vault_solvent_forever" },
+      proof := some "NearAsync.Vault.Proof.concrete_fixed_solvent" },
     { name := "noreturn-vulnerable", pattern := "ghost funds (hook returns nothing)",
       summary := "same vulnerable vault; the hook succeeds but returns no value",
       cfg := { depositFixed := false, hookReturns := .unit }, adv := .none, vulnerable := true },
     { name := "noreturn-fixed", pattern := "ghost funds (hook returns nothing)",
       summary := "fixed vault with the same hook that returns no value",
       cfg := { hookReturns := .unit }, adv := .none, vulnerable := false,
-      proof := some "NearAsync.Vault.Proof.fixed_vault_solvent_forever" },
+      proof := some "NearAsync.Vault.Proof.concrete_fixed_solvent" },
     { name := "withdraw-vulnerable", pattern := "withdraw without restore",
       summary := "debits the ledger, calls ft_transfer, never restores the ledger if it fails",
       cfg := { withdrawFixed := false }, adv := .nonCallback, vulnerable := true },
     { name := "withdraw-fixed", pattern := "withdraw without restore",
       summary := "restores the ledger in after_withdraw when ft_transfer failed",
       cfg := {}, adv := .nonCallback, vulnerable := false,
-      proof := some "NearAsync.Vault.Proof.fixed_vault_no_stuck_funds" } ]
+      proof := some "NearAsync.Vault.Proof.concrete_fixed_solvent (solvency; no-stuck-funds is bounded only)" } ]
 
 def findModel (n : String) : Option Model := models.find? (·.name == n)
 
