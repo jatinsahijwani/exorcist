@@ -17,11 +17,12 @@ deposit while NEAR Intents retained the corresponding ledger credit"; 23 such de
 unbacked balances, which were withdrawn and later returned
 ([postmortem summary](https://cryptonews.net/news/security/33604900/)). Exorcist is asked only whether the
 attacker can ever cash out more than she put in. It **finds the full exploit automatically: depth 8,
-26,191 states, about 45 ms, with a witness theorem checked by the Lean kernel**:
+26,191 states, about 45 ms, with a witness theorem checked by the Lean kernel**. The ledger becomes
+insolvent at step 5 (the deposit is refunded but stays credited), and the cash-out completes at step 8:
 
 ```
 $ ./.lake/build/bin/exorcist check incident-2026-10
-RESULT: VIOLATION (insolvent) at depth 8, 26191 states explored in 45 ms. Shortest attack trace:
+RESULT: VIOLATION (attacker_profit) at depth 8, 26191 states explored in 45 ms. Shortest attack trace:
 
 1. eve sends tx: token.ft_transfer_call(vault, 100, "notify hook") (+1 yocto)
      ledger: alice=300 eve=0 (total 300) | tokens: vault=300 alice=0 eve=100
@@ -71,7 +72,7 @@ curl https://sh.rustup.rs -sSf | sh -s -- -y
 git clone https://github.com/jatinsahijwani/exorcist && cd exorcist
 ```
 
-**1. `make quick`** (about 90 s): builds everything, finds every bug, checks every proof. It ends with:
+**1. `make quick`** (about 90–110 s on a fresh clone): builds everything, finds every bug, checks every proof. It ends with:
 
 ```
 PASS    incident-2026-10: attack found, witness theorem kernel-checked            found at depth 8 (26191 states)
@@ -81,15 +82,15 @@ PASS    incident-2026-10-fixed: solvent (sum of ledger <= tokens held)          
 ALL PASS
 ```
 
-**2. `./.lake/build/bin/exorcist check incident-2026-10`** (under 1 s): the attack. You see the 8-step trace
-above, `RESULT: VIOLATION (insolvent) at depth 8, 26191 states explored`, and
+**2. `./.lake/build/bin/exorcist check incident-2026-10`** (1–3 s): the attack. You see the 8-step trace
+above, `RESULT: VIOLATION (attacker_profit) at depth 8, 26191 states explored`, and
 `✓ checked by the Lean kernel (decide): this trace really violates the property`. Exit code 1.
 
 **3. `./.lake/build/bin/exorcist prove incident-2026-10-fixed`** (about 1 s): the proof. You see
 `RESULT:    ✓ PROVEN FOR ALL TRACES: solvent` and `depends on axioms: [propext, Classical.choice, Quot.sound]`.
 
 **4. Your own contract:** `./.lake/build/bin/exorcist new vault && lake build exorcist && ./.lake/build/bin/exorcist check vault`
-(about 30 s to build, 15 s to check). You see `created Verifier/Models/User/Vault.lean and registered model 'vault'`,
+(about 20–30 s to build, 15 s to check). You see `created Verifier/Models/User/Vault.lean and registered model 'vault' in Verifier/Models/User.lean`,
 then `RESULT: NO VIOLATION — bounded to depth 10: 8251651 states explored` and
 `✓ reachable in 4 steps: alice withdraws her 100`. Edit `handle` in that file to try a bug
 ([docs/WRITE-A-MODEL.md](docs/WRITE-A-MODEL.md)); `git checkout Verifier/Models/User.lean && rm -r Verifier/Models/User/` undoes it.
@@ -101,28 +102,36 @@ output. Run commands from the repo root after `make quick`. "Contains" means the
 
 | # | Claim | Evidence | Command | Expected output |
 |---|---|---|---|---|
-| 1 | The incident mechanism (minimal model, not their contract) is found automatically | `Verifier/Models/Registry.lean` (`m_incident`) | `./.lake/build/bin/exorcist check incident-2026-10` | contains `VIOLATION (insolvent) at depth 8, 26191 states explored`; exit 1 |
+| 1 | The incident mechanism (minimal model, not their contract) is found automatically | `Verifier/Models/Registry.lean` (`m_incident`) | `./.lake/build/bin/exorcist check incident-2026-10` | contains `VIOLATION (attacker_profit) at depth 8, 26191 states explored`; exit 1 |
 | 2 | That attack trace is a witness theorem checked by the Lean kernel | `out/incident-2026-10.witness.lean` (written by #1) | `lake env lean out/incident-2026-10.witness.lean && echo OK` | `OK` (no errors) |
 | 3 | The repeated attack (2 failed deposits → attacker 300, pool backed by 100) and the fixed contract's safety on the same transactions | `Verifier/Witness/Incident.lean` | `lake build Verifier.Witness.Incident` | contains `Build completed successfully` |
 | 4 | The fixed incident contract is solvent for every trace of the model | `Verifier/Proof/Theorem.lean` (`concrete_fixed_solvent_from`) | `./.lake/build/bin/exorcist prove incident-2026-10-fixed` | contains `✓ PROVEN FOR ALL TRACES: solvent` |
-| 5 | The general solvency theorem (any accounts, amounts, attacker code, any receipt failing) uses only standard axioms, so no `sorry` and no `native_decide` | `Verifier/Proof/` (`fixed_vault_solvent_forever`) | same as #4 | contains `'NearAsync.Vault.Proof.fixed_vault_solvent_forever' depends on axioms: [propext, Classical.choice, Quot.sound]` |
+| 5 | No `sorry` and no `native_decide`: all 14 headline theorems (both proofs and all witnesses) use only standard axioms | `Verifier/Proof/`, `Verifier/Witness/` | `scripts/verify-axioms.sh` | ends with `OK: 14 theorems, standard axioms only (no sorryAx, no Lean.ofReduceBool)` |
 | 6 | No stuck funds, assuming callbacks don't fail and no plain `ft_transfer` donations | `Verifier/Proof/NoStuckCases.lean` (`fixed_vault_no_stuck_funds`) | `./.lake/build/bin/exorcist prove withdraw-fixed` | contains `✓ PROVEN FOR ALL TRACES: no stuck funds` |
 | 7 | That callback assumption is necessary: if callbacks may fail, funds get stuck | `m_withdraw_fixed_callback_fail` | `./.lake/build/bin/exorcist check withdraw-fixed-callback-fail` | contains `VIOLATION (funds_stuck) at depth 4, 167 states explored` |
 | 8 | Ghost funds via a failed notification | `Verifier/Witness/GhostFunds.lean` | `./.lake/build/bin/exorcist check deposit-vulnerable` | contains `VIOLATION (insolvent) at depth 5, 444 states explored` |
 | 9 | Ghost funds with no failure at all (hook returns nothing) | `Verifier/Witness/NoReturn.lean` | `./.lake/build/bin/exorcist check noreturn-vulnerable` | contains `VIOLATION (insolvent) at depth 5, 438 states explored` |
 | 10 | Withdraw without restore strands user funds | `Verifier/Witness/WithdrawNoRestore.lean` | `./.lake/build/bin/exorcist check withdraw-vulnerable` | contains `VIOLATION (funds_stuck) at depth 5, 3622 states explored` |
-| 11 | The fixed models are clean up to depth 10 (bounded) | `docs/RESULTS.md` | `make check` | contains `fixed models clean (bounded to depth 10); vulnerable models caught` |
+| 11 | The fixed models are clean up to depth 10 (bounded), with these state counts | `docs/RESULTS.md` | `make check` | contains `1289374 states`, `1044233 states`, `839929 states`, `11154645 states` and `fixed models clean (bounded to depth 10); vulnerable models caught` |
 | 12 | The fixes still allow honest use (liveness) | `Verifier/Witness/Liveness.lean` | `./.lake/build/bin/exorcist check deposit-fixed` | contains `✓ reachable in 6 steps: honest deposit` and `✓ reachable in 4 steps: withdraw pays out` |
 | 13 | The model matches real Rust contracts in the NEAR sandbox, transaction by transaction | `sandbox/tests/replay.rs` | `make sandbox` | contains `test result: ok. 9 passed` |
-| 14 | On NEAR testnet the attack drains the vulnerable vault and leaves the fixed one whole | [vulnerable deposit tx](https://testnet.nearblocks.io/txns/EBigWS13rHHqTDYNKMsamY9d4bhcdpuR4v1GFUkMxycN), [fixed deposit tx](https://testnet.nearblocks.io/txns/G9f5oowAE1Y1tmjBR1ePsAxmPtdSdtZ6aYcYkuPKppqG), [docs/RESULTS.md](docs/RESULTS.md#testnet-replay-run-on-2026-11-11) | `curl -s -X POST https://rpc.testnet.fastnear.com -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tx","params":{"tx_hash":"EBigWS13rHHqTDYNKMsamY9d4bhcdpuR4v1GFUkMxycN","sender_account_id":"eve-x404319v.exorcist-replay-35b9fa.testnet","wait_until":"FINAL"}}'` | contains `"final_execution_status":"FINAL"` and `EXORCIST ft_transfer_call` |
+| 14 | On NEAR testnet the attack drains the vulnerable vault and leaves the fixed one whole (all 4 transactions are final) | [vulnerable deposit tx](https://testnet.nearblocks.io/txns/EBigWS13rHHqTDYNKMsamY9d4bhcdpuR4v1GFUkMxycN), [fixed deposit tx](https://testnet.nearblocks.io/txns/G9f5oowAE1Y1tmjBR1ePsAxmPtdSdtZ6aYcYkuPKppqG), [docs/RESULTS.md](docs/RESULTS.md#testnet-replay-run-on-2026-11-11) | `scripts/verify-testnet.sh` | ends with `4/4 FINAL` |
 | 15 | An AI agent using the MCP gate is blocked from deploying the vulnerable vault and allowed after the fix | `mcp/exorcist_mcp.py`, [docs/AGENT-GATE.md](docs/AGENT-GATE.md) | `python3 mcp/agent_gate_demo.py` | contains `PASS: vulnerable contract blocked, fixed contract allowed` |
-| 16 | CI fails a PR that reintroduces the bug ([PR #1](https://github.com/jatinsahijwani/exorcist/pull/1)) | `.github/workflows/exorcist.yml`, `action.yml` | `curl -s https://api.github.com/repos/jatinsahijwani/exorcist/commits/example/vulnerable-pr/check-runs \| grep '"conclusion"'` | `"conclusion": "failure"` (both jobs) |
-| 17 | NEAR AI drafts of our three contracts match the hand-written models (experimental) | `drafts/*.lean`, [drafts/ASSESSMENT.md](drafts/ASSESSMENT.md) | `scripts/verify-drafts.sh` (no key needed) | 8 lines ending `✓ same` |
+| 16 | CI fails a PR that reintroduces the bug ([PR #1](https://github.com/jatinsahijwani/exorcist/pull/1)) | `.github/workflows/exorcist.yml`, `action.yml` | `curl -s -o pr1.json https://api.github.com/repos/jatinsahijwani/exorcist/commits/example/vulnerable-pr/check-runs && grep '"conclusion"' pr1.json` | `"conclusion": "failure"` twice (both jobs) |
+| 17 | NEAR AI drafts of our three contracts match the hand-written models (experimental) | `drafts/*.lean`, [drafts/ASSESSMENT.md](drafts/ASSESSMENT.md) | `scripts/verify-drafts.sh` (no key needed) | 8 table lines, each containing `✓ same` |
+| 17b | Every NEAR AI draft compiled in the first round | `drafts/drafts-run.log` (log of the real run) | `grep -c 'round 1: ✓' drafts/drafts-run.log` | `5` |
 | 18 | You can model your own contract and check it | [docs/WRITE-A-MODEL.md](docs/WRITE-A-MODEL.md) | `scripts/test-walkthrough.sh` | contains `WALKTHROUGH PASS` |
 | 19 | The draft pipeline (request, compile, repair loop, comparison) works | `Exorcist/Draft.lean` | `scripts/test-draft.sh` | contains `DRAFT PIPELINE PASS` |
 | 20 | Everything above in one command | `scripts/demo.sh` | `make demo` | ends with `ALL PASS` |
-| 21 | Facts about the incident ($3.8M, 23 failed deposits, notification mechanism, funds returned) | external | open the [postmortem summary](https://cryptonews.net/news/security/33604900/) | the quoted sentences |
+| 21 | Facts about the incident ($3.8M, 23 failed deposits, withdrawals Sept 29 – Oct 1, Oct 16 postmortem, notification mechanism, monitoring "did not compare users' aggregate internal balances", funds returned) | external | open the [postmortem summary](https://cryptonews.net/news/security/33604900/) | the quoted sentences and figures |
 | 22 | NEAR AI solved 672 PutnamBench problems for about $112 | external | open [nearai/putnambench-deepseek](https://github.com/nearai/putnambench-deepseek) | "672 problems solved", "~$112" |
+| 23 | NEAR announced it is next applying AI-assisted verification to "the NEAR protocol and core smart contracts" | external | open [crypto.news](https://crypto.news/near-ai-formal-verification-protocol-smart-contracts/) | that phrase |
+| 24 | The token model follows the near-sdk-rs 5.30.1 reference, including the `min(unused, receiver balance)` refund; every semantic rule is sourced | `Verifier/Token.lean`, [docs/SEMANTICS.md](docs/SEMANTICS.md) | `grep -n "min rb unused" Verifier/Token.lean` | `let refund := min rb unused` |
+| 25 | `exorcist prove --ai` calls NEAR AI Cloud (works with a key; without a valid key it reports the API's answer) | `Exorcist/Prove.lean` | `NEARAI_API_KEY=invalid ./.lake/build/bin/exorcist prove deposit-fixed --ai --rounds 1` | contains `cloud-api.near.ai` and `Invalid or expired API key` |
+| 26 | `check --json` writes machine-readable results | `Main.lean` | `./.lake/build/bin/exorcist check deposit-fixed --json out.json >/dev/null; python3 -m json.tool out.json >/dev/null && echo valid` | `valid` |
+| 27 | CI is green on `main` (incl. agent-gate, walkthrough and draft-pipeline tests) | `.github/workflows/exorcist.yml` | `curl -s -o main.json https://api.github.com/repos/jatinsahijwani/exorcist/commits/main/check-runs && grep '"conclusion"' main.json` | `"conclusion": "success"` for each job |
+| 28 | The live results page is up | `docs/site/index.html` | `curl -s -o /dev/null -w '%{http_code}' https://jatinsahijwani.github.io/exorcist/` | `200` |
+| 29 | Toolchains are pinned | `lean-toolchain`, `sandbox/rust-toolchain.toml`, `sandbox/Cargo.lock` | `cat lean-toolchain sandbox/rust-toolchain.toml` | `leanprover/lean4:v4.34.0` and `channel = "1.96.0"` |
 
 ## What Exorcist does not claim
 
@@ -393,7 +402,7 @@ credit or vault transfer has its callback waiting on it for at least that amount
 | `mcp/` | MCP agent-gate server and the scripted agent test |
 | `Verifier/Models/User.lean` | registry of your models (`exorcist new` creates them under `Verifier/Models/User/`) |
 | `scripts/` | `demo.sh`, `testnet-replay.sh`, `test-walkthrough.sh`, `drafts.sh`, `record-demo.py` |
-| `docs/site/` | static results page (for GitHub Pages; deploy with the manual `pages` workflow once public) |
+| `docs/site/` | the [live results page](https://jatinsahijwani.github.io/exorcist/) (deployed by the manual `pages` workflow) |
 | `action.yml`, `.github/workflows/` | reusable GitHub Action and this repo's CI |
 | `docs/` | semantics, results, architecture, example PR |
 
@@ -405,7 +414,7 @@ matched the model after every transaction:
 | | Vulnerable vault | Fixed vault |
 |---|---|---|
 | deposit with a failing hook | [tx](https://testnet.nearblocks.io/txns/EBigWS13rHHqTDYNKMsamY9d4bhcdpuR4v1GFUkMxycN): refunded **and** credited | [tx](https://testnet.nearblocks.io/txns/G9f5oowAE1Y1tmjBR1ePsAxmPtdSdtZ6aYcYkuPKppqG): refunded, not credited |
-| eve withdraws 100 | [tx](https://testnet.nearblocks.io/txns/qSjvAX1otfxW8iBi2SJ9ebh5cMcYqhry2ftW5Wo3czm): pays out; vault ends at 0 | [tx](https://testnet.nearblocks.io/txns/FNioJzWavui9B3AN4jqMkuL5FUUQeTz2RYzaPjDDCDzV): panics; vault keeps 100 |
+| eve withdraws 100 | [tx](https://testnet.nearblocks.io/txns/qSjvAX1otfxW8iBi2SJ9ebh5cMcYqhry2ftW5Wo3czm): pays out; vault ends at 0 | [tx](https://testnet.nearblocks.io/txns/FNioJzWavui9B3AN4jqMkuL5FUUQeTz2RYzaPjDDCDzV): rejected (the contract panics: "WebAssembly trap"); vault keeps 100 |
 
 Contracts: [vulnerable vault](https://testnet.nearblocks.io/address/vault-x404319v.exorcist-replay-35b9fa.testnet),
 [fixed vault](https://testnet.nearblocks.io/address/vault-x404319f2.exorcist-replay-35b9fa.testnet),

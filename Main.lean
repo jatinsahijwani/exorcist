@@ -105,7 +105,7 @@ def check (o : Opts) : IO UInt32 := do
   | some t =>
     let rs := rows sys init t
     let final := (rs.getLast?.map (·.after)).getD init
-    say s!"\nRESULT: VIOLATION ({violationKind final}) at depth {r.depth}, {r.visited} states explored in {ms} ms. Shortest attack trace:\n"
+    say s!"\nRESULT: VIOLATION ({m.violationName.getD (violationKind final)}) at depth {r.depth}, {r.visited} states explored in {ms} ms. Shortest attack trace:\n"
     for l in renderText rs do say l
     let file := o.emitLean.getD s!"out/{m.name}.witness.lean"
     IO.FS.createDirAll (System.FilePath.mk file).parent.get!
@@ -131,7 +131,7 @@ def check (o : Opts) : IO UInt32 := do
       if cashOut then say "  (then eve withdraws 100)"
       say s!"  on this contract:   {snapshot vulnEnd2}"
       say s!"  on the fixed vault: {snapshot fixedEnd}"
-    violationJson := jObj [("kind", jStr (violationKind final)), ("depth", toString r.depth),
+    violationJson := jObj [("kind", jStr (m.violationName.getD (violationKind final))), ("depth", toString r.depth),
                            ("witness_file", jStr file), ("trace", traceJson rs),
                            ("replay_vulnerable", vulnReplay), ("replay_fixed", fixedReplay)]
     if code == 0 then code := 1

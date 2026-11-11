@@ -70,6 +70,8 @@ structure Model where
   sandbox : Bool := true
   /-- this model reconstructs a published incident; shown prominently -/
   disclaimer : Option String := none
+  /-- how to name a violation of `prop` (default: insolvent / funds_stuck from the state) -/
+  violationName : Option String := none
 
 def Model.sys (m : Model) : System (St Acct) Acct (Call Acct) := m.custom.getD (system m.cfg m.adv)
 def Model.honestSys (m : Model) : System (St Acct) Acct (Call Acct) := m.customHonest.getD (system m.cfg .none)
@@ -165,7 +167,7 @@ def m_incident : Model :=
     init := incidentInit, menu := incidentMenu, prop := noProfit,
     propText := ["attacker cannot cash out more than she put in (eve's tokens ≤ 100)"],
     scenario := incidentScenario, goals := incidentGoals, sandbox := false,
-    disclaimer := some incidentDisclaimer }
+    disclaimer := some incidentDisclaimer, violationName := some "attacker_profit" }
 
 def m_incident_fixed : Model :=
   { name := "incident-2026-10-fixed", pattern := "Oct 2026 NEAR Intents mechanism (minimal model), fixed",

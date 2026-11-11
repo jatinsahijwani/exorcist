@@ -1,0 +1,10 @@
+drafting sandbox/contracts/token/src/lib.rs as `token` with anthropic/claude-opus-5-5 on https://cloud-api.near.ai/v1 (up to 4 rounds)
+round 1: ✓ the draft compiles: drafts/Token.lean
+drafting sandbox/contracts/hook/src/lib.rs as `hook` with anthropic/claude-opus-5-5 on https://cloud-api.near.ai/v1 (up to 4 rounds)
+round 1: ✓ the draft compiles: drafts/Hook.lean
+drafting sandbox/contracts/vault/src/lib.rs as `vault` with anthropic/claude-opus-5-5 on https://cloud-api.near.ai/v1 (up to 4 rounds)
+round 1: ✓ the draft compiles: drafts/VaultFixed.lean
+drafting sandbox/contracts/vault/src/lib.rs as `vault` with anthropic/claude-opus-5-5 on https://cloud-api.near.ai/v1 (up to 4 rounds)
+round 1: ✓ the draft compiles: drafts/VaultGhost.lean
+drafting sandbox/contracts/vault/src/lib.rs as `vault` with anthropic/claude-opus-5-5 on https://cloud-api.near.ai/v1 (up to 4 rounds)
+round 1: ✓ the draft compiles: drafts/VaultNoRestore.lean
