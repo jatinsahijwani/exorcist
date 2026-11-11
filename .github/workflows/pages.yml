@@ -1,0 +1,23 @@
+name: pages
+# Publishes docs/site as the GitHub Pages results page. Manual only: enable Pages
+# (Settings → Pages → Source: GitHub Actions) after the repository is public, then run this workflow.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: mkdir -p docs/site/media && cp docs/media/demo.svg docs/site/media/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/site
+      - id: deploy
+        uses: actions/deploy-pages@v4

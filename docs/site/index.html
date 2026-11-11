@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exorcist results</title>
+<meta name="description" content="Exorcist finds ghost funds in NEAR contracts, or proves there are none: attack traces, Lean proofs, sandbox validation.">
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1f23;--muted:#5d636b;--line:#e3e0d8;--card:#ffffff;--accent:#5b3fd1;--ok:#1f7a3a;--bad:#b3261e;--code:#f2f0ea}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#15171b;--fg:#e8e6e1;--muted:#9aa0a8;--line:#2b2f36;--card:#1c1f24;--accent:#a593ff;--ok:#6fcf8a;--bad:#ff8a80;--code:#20242a}}
+:root[data-theme="dark"]{--bg:#15171b;--fg:#e8e6e1;--muted:#9aa0a8;--line:#2b2f36;--card:#1c1f24;--accent:#a593ff;--ok:#6fcf8a;--bad:#ff8a80;--code:#20242a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:40px 16px 80px}
+h1{font-size:2.1rem;margin:0 0 .3rem;letter-spacing:-.02em}
+h2{font-size:1.25rem;margin:2.6rem 0 .8rem;padding-top:1rem;border-top:1px solid var(--line)}
+p{margin:.6rem 0}
+.lede{font-size:1.15rem;color:var(--muted);margin-bottom:1.4rem}
+a{color:var(--accent)}
+.demo{width:100%;height:auto;border-radius:10px;display:block;margin:1.2rem 0}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px;overflow-x:auto;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92em}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:.82rem;text-transform:uppercase;letter-spacing:.04em}
+tr:last-child td{border-bottom:none}
+.ok{color:var(--ok);font-weight:600}.bad{color:var(--bad);font-weight:600}
+.tag{display:inline-block;font-size:.78rem;padding:1px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.tag.proven{border-color:var(--ok);color:var(--ok)}
+.note{border-left:3px solid var(--accent);padding:4px 0 4px 14px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:1rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px}
+.card b{display:block;font-size:1.5rem}
+footer{margin-top:3rem;color:var(--muted);font-size:.9rem}
+</style>
+</head>
+<body>
+<main>
+<h1>Exorcist</h1>
+<p class="lede">Finds ghost funds in NEAR contracts, or proves there are none.</p>
+<p>On NEAR, a cross-contract call can fail after a contract has already updated its ledger, and nothing rolls back. With NEP-141, the token then refunds the sender. Exorcist explores every receipt ordering and every failure up to a bound to find attacks like this, checks each attack trace in the Lean kernel, proves fixed contracts correct for <em>all</em> traces, and replays every trace against real Rust contracts in the NEAR sandbox.</p>
+<img class="demo" src="media/demo.svg" alt="Terminal recording: exorcist finds the incident attack, proves the fix, and make demo prints an all-pass summary">
+
+<div class="grid">
+  <div class="card"><b>8 steps</b>to reconstruct the Oct 2026 mechanism, found automatically in 26,191 states</div>
+  <div class="card"><b>2 theorems</b>for all traces: the fixed vault stays solvent and strands no funds</div>
+  <div class="card"><b>8 / 8</b>sandbox replays match the model after every transaction</div>
+  <div class="card"><b>0</b>uses of <code>sorry</code> or <code>native_decide</code>; standard axioms only</div>
+</div>
+
+<h2>The opening case: the Oct 2026 incident mechanism</h2>
+<p class="note">This is a minimal model of the mechanism described in the NEAR Intents postmortem, written from scratch. It is not their contract. According to the postmortem, an attacker's contract deliberately failed deposit notifications; the token refunded each deposit while the ledger kept the credit; the resulting .8M of unbacked balances was withdrawn (<a href="https://cryptonews.net/news/security/33604900/">summary of the postmortem</a>; the funds were returned).</p>
+<p><code>exorcist check incident-2026-10</code> finds the full exploit, deposit through to cash-out, without being told what to look for:</p>
+<pre>1. eve sends tx: token.ft_transfer_call(vault, 100, &quot;notify hook&quot;) (+1 yocto)
+     ledger: alice=300 eve=0 (total 300) | tokens: vault=300 alice=0 eve=100
+2. run #0 token.ft_transfer_call(vault, 100, &quot;notify hook&quot;)  ⇒ returns a promise
+     ledger: alice=300 eve=0 (total 300) | tokens: vault=400 alice=0 eve=0
+3. run #1 vault.ft_on_transfer(eve, 100, &quot;notify hook&quot;)  ⇒ returns a promise
+     ledger: alice=300 eve=100 (total 400) | tokens: vault=400 alice=0 eve=0
+4. FAIL #3 hook.on_deposit(eve, 100)  ⇒ adversary makes it fail
+     ledger: alice=300 eve=100 (total 400) | tokens: vault=400 alice=0 eve=0
+5. run #2 token.ft_resolve_transfer(eve, vault, 100)  ⇒ ok, returns 0  — refunds 100 vault → eve
+     ledger: alice=300 eve=100 (total 400) | tokens: vault=300 alice=0 eve=100   ⚠ INSOLVENT (ledger &gt; tokens held)
+6. eve sends tx: vault.withdraw(100)
+     ledger: alice=300 eve=100 (total 400) | tokens: vault=300 alice=0 eve=100   ⚠ INSOLVENT (ledger &gt; tokens held)
+7. run #5 vault.withdraw(100)  ⇒ ok (no value)
+     ledger: alice=300 eve=0 (total 300) | tokens: vault=300 alice=0 eve=100
+8. run #6 token.ft_transfer(eve, 100)  ⇒ ok (no value)
+     ledger: alice=300 eve=0 (total 300) | tokens: vault=200 alice=0 eve=200   ⚠ INSOLVENT (ledger &gt; tokens held)</pre>
+<p>The trace is re-run and checked by the Lean kernel (<code>decide</code>). The fixed contract, which credits only after the notification has succeeded, is clean in 1,289,374 states and is proven solvent for every trace.</p>
+
+<h2>Results</h2>
+<div class="table-wrap"><table>
+<tr><th>Model</th><th>Result</th><th>Label</th></tr>
+<tr><td><code>incident-2026-10</code></td><td class="bad">attack found: eve cashes out 200 from a 100 deposit</td><td><span class="tag">depth 8 · 26,191 states</span></td></tr>
+<tr><td><code>incident-2026-10-fixed</code></td><td class="ok">solvent</td><td><span class="tag proven">proven for all traces</span></td></tr>
+<tr><td><code>deposit-vulnerable</code></td><td class="bad">insolvent after a failed notification</td><td><span class="tag">depth 5 · 444 states</span></td></tr>
+<tr><td><code>noreturn-vulnerable</code></td><td class="bad">insolvent with no failure at all (hook returns nothing)</td><td><span class="tag">depth 5 · 438 states</span></td></tr>
+<tr><td><code>withdraw-vulnerable</code></td><td class="bad">user funds stuck after a failed payout</td><td><span class="tag">depth 5 · 3,622 states</span></td></tr>
+<tr><td><code>deposit-fixed</code>, <code>noreturn-fixed</code>, <code>withdraw-fixed</code></td><td class="ok">no violation (1.04M / 0.84M / 11.2M states); solvent</td><td><span class="tag">bounded to depth 10</span> <span class="tag proven">proven for all traces</span></td></tr>
+<tr><td><code>withdraw-fixed</code>, <code>noreturn-fixed</code></td><td class="ok">no stuck funds: tokens held = ledger whenever nothing is in flight</td><td><span class="tag proven">proven for all traces</span></td></tr>
+<tr><td>sandbox (near-workspaces, Rust contracts)</td><td class="ok">8 trace replays match the model; the negative control passes</td><td><span class="tag">real contracts</span></td></tr>
+<tr><td>agent gate (MCP)</td><td class="ok">an AI agent is blocked from deploying the vulnerable vault and allowed after the fix</td><td><span class="tag">tested</span></td></tr>
+</table></div>
+
+<h2>What is proven</h2>
+<p><code>fixed_vault_solvent_forever</code> holds for any accounts, any amounts, arbitrary attacker contracts and any receipt failing: after every trace, Σ ledger ≤ tokens held by the vault. <code>fixed_vault_no_stuck_funds</code> adds that whenever nothing is in flight, tokens held = Σ ledger. It assumes callbacks have gas reserved and that nobody makes plain <code>ft_transfer</code> donations to the vault. Both are checked by the Lean 4 kernel; <code>#print axioms</code> shows only <code>propext</code>, <code>Classical.choice</code> and <code>Quot.sound</code>.</p>
+
+<h2>Limits</h2>
+<p>Results are about models, written by hand and reviewed. Each model is checked against the Rust on the replayed traces, not in general. Gas, storage staking and deleted accounts are not modelled. Bounded results cover the stated actors, amounts and transactions only. <code>exorcist draft</code>, which has NEAR AI draft a model from Rust, is experimental.</p>
+
+<footer>
+<p>Reproduce: <code>make quick</code> (about 1 minute) or <code>make demo</code> (adds the sandbox). Source, proofs and docs: <a href="https://github.com/jatinsahijwani/exorcist">github.com/jatinsahijwani/exorcist</a>. Built at NEAR HACKATHON 2026. MIT license.</p>
+</footer>
+</main>
+</body>
+</html>
