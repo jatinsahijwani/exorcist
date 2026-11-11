@@ -225,6 +225,7 @@ How the pieces fit: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | `withdraw-fixed` | no violation (11,154,645 states); solvent | bounded to depth 10; **proven for all traces** |
 | `withdraw-fixed`, `noreturn-fixed` | no stuck funds: when nothing is in flight, tokens held = Σ ledger | **proven for all traces** (assumptions below) |
 | sandbox | all 8 trace replays match the model after every transaction; negative control passes | real Rust contracts, near-workspaces |
+| **NEAR testnet** | the attack drains the vulnerable vault; the same transactions leave the fixed vault whole ([links](#testnet-replay)) | live chain, matches the model |
 | agent gate (MCP) | an AI agent is blocked from deploying `withdraw-vulnerable` and allowed after the fix | tested in CI and `make demo` |
 | `exorcist draft` (experimental) | NEAR AI drafts of all 3 contracts: compile in round 1, 8/8 checks match, faithful on review | evidence on 3 contracts |
 | your model (`exorcist new`) | walkthrough: the scaffold is clean; a "debit on success" variant pays alice twice | tested end to end in CI |
@@ -326,15 +327,31 @@ credit or vault transfer has its callback waiting on it for at least that amount
 
 ## Testnet replay
 
+**Done on 2026-11-11.** The attack and the fixed vault were replayed on NEAR testnet, and the chain state
+matched the model after every transaction:
+
+| | Vulnerable vault | Fixed vault |
+|---|---|---|
+| deposit with a failing hook | [tx](https://testnet.nearblocks.io/txns/EBigWS13rHHqTDYNKMsamY9d4bhcdpuR4v1GFUkMxycN): refunded **and** credited | [tx](https://testnet.nearblocks.io/txns/G9f5oowAE1Y1tmjBR1ePsAxmPtdSdtZ6aYcYkuPKppqG): refunded, not credited |
+| eve withdraws 100 | [tx](https://testnet.nearblocks.io/txns/qSjvAX1otfxW8iBi2SJ9ebh5cMcYqhry2ftW5Wo3czm): pays out; vault ends at 0 | [tx](https://testnet.nearblocks.io/txns/FNioJzWavui9B3AN4jqMkuL5FUUQeTz2RYzaPjDDCDzV): panics; vault keeps 100 |
+
+Contracts: [vulnerable vault](https://testnet.nearblocks.io/address/vault-x404319v.exorcist-replay-35b9fa.testnet),
+[fixed vault](https://testnet.nearblocks.io/address/vault-x404319f2.exorcist-replay-35b9fa.testnet),
+[token](https://testnet.nearblocks.io/address/token-x404319.exorcist-replay-35b9fa.testnet),
+[hook](https://testnet.nearblocks.io/address/hook-x404319.exorcist-replay-35b9fa.testnet). Details: [docs/RESULTS.md](docs/RESULTS.md).
+
+Run it yourself (testnet only; needs about 10 testnet NEAR, e.g. a faucet-sponsored account):
+
 ```sh
-export EXORCIST_TESTNET_ACCOUNT=you.testnet          # needs about 13 testnet NEAR
-export EXORCIST_TESTNET_PRIVATE_KEY=ed25519:...      # keep out of the repo
-scripts/testnet-replay.sh
+near account create-account sponsor-by-faucet-service you-exorcist.testnet autogenerate-new-keypair \
+  save-to-legacy-keychain network-config testnet create     # key goes to ~/.near-credentials
+EXORCIST_TESTNET_ACCOUNT=you-exorcist.testnet scripts/testnet-replay.sh
 ```
 
-It deploys the token, hook, vulnerable and fixed vaults under your account, replays the attack against
-both, checks the chain state against the model after every transaction, and prints
-`testnet.nearblocks.io` links. It refuses to run if the account or RPC is not testnet.
+It deploys the token, hook, vulnerable and fixed vaults under that account, replays the attack against
+both, checks the chain state against the model after every transaction, and prints `testnet.nearblocks.io`
+links. It reads the key from `~/.near-credentials/testnet/<account>.json`, or from
+`EXORCIST_TESTNET_PRIVATE_KEY`, and refuses to run if the account or RPC is not testnet.
 
 ## Using it in another repository
 

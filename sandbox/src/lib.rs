@@ -112,8 +112,14 @@ pub struct Shared {
 /// Deploy the token (supply minted to `root`) and the hook.
 pub async fn deploy_shared(root: &Account, prefix: &str, supply: u128, hook_owner: &Account, hook_mode: &str,
                            contract_near: NearToken) -> Result<Shared> {
-    let token = sub(root, &format!("token{prefix}"), contract_near).await?.deploy(&wasm("token.wasm")?).await?.into_result()?;
-    let hook = sub(root, &format!("hook{prefix}"), contract_near).await?.deploy(&wasm("hook.wasm")?).await?.into_result()?;
+    deploy_shared_sized(root, prefix, supply, hook_owner, hook_mode, contract_near, contract_near).await
+}
+
+/// Same, with separate initial balances for the token and hook accounts.
+pub async fn deploy_shared_sized(root: &Account, prefix: &str, supply: u128, hook_owner: &Account, hook_mode: &str,
+                                 token_near: NearToken, hook_near: NearToken) -> Result<Shared> {
+    let token = sub(root, &format!("token{prefix}"), token_near).await?.deploy(&wasm("token.wasm")?).await?.into_result()?;
+    let hook = sub(root, &format!("hook{prefix}"), hook_near).await?.deploy(&wasm("hook.wasm")?).await?.into_result()?;
     ok(token.call("new").args_json(json!({ "owner_id": root.id(), "total_supply": supply.to_string() })).transact().await?, "token.new")?;
     ok(hook.call("new").args_json(json!({ "owner": hook_owner.id(), "mode": hook_mode })).transact().await?, "hook.new")?;
     ok(root.call(token.id(), "register").args_json(json!({ "account_id": hook.id() }))
@@ -138,7 +144,7 @@ pub async fn setup_run(root: &Account, shared: &Shared, prefix: &str, vault_wasm
     }
     ok(alice.call(token.id(), "ft_transfer_call")
         .args_json(json!({ "receiver_id": vault.id(), "amount": "100", "msg": "" }))
-        .deposit(NearToken::from_yoctonear(1)).max_gas().transact().await?, "alice deposit")?;
+        .deposit(NearToken::from_yoctonear(1)).gas(near_workspaces::types::Gas::from_tgas(150)).transact().await?, "alice deposit")?;
     Ok(Env { root: root.clone(), alice, eve, token, vault, hook: shared.hook.clone(), hook_owner: shared.hook_owner.clone() })
 }
 
@@ -240,7 +246,7 @@ pub async fn replay_on(env: &Env, label: &str, initial: &Value, rep: &Value) -> 
             .call(&receiver, method)
             .args_json(args)
             .deposit(NearToken::from_yoctonear(tx["deposit_yocto"].as_u64().unwrap() as u128))
-            .max_gas()
+            .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
             .await?;
         hashes.push(res.outcome().transaction_hash.to_string());
@@ -248,7 +254,7 @@ pub async fn replay_on(env: &Env, label: &str, initial: &Value, rep: &Value) -> 
         inject(env, tx, false, hook_mode).await?;
         let state = env.state().await?;
         println!("   tx{} {} → {}.{}  receipts {:?}", i + 1, tx["signer"], tx["receiver"], method, seen);
-        println!("        sandbox {:?}", state);
+        println!("        chain   {:?}", state);
         assert_eq!(seen, expected_receipts(tx), "{label} tx{}: receipt outcomes differ from the model", i + 1);
         assert_eq!(state, model_state(&tx["state_after"])?, "{label} tx{}: state differs from the model", i + 1);
     }

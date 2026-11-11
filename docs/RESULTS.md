@@ -97,6 +97,24 @@ the model's receipts.
 
 No mismatch between model and sandbox was found.
 
+## Testnet replay: run on 2026-11-11
+
+The ghost-funds attack (`deposit-vulnerable`, plus eve's cash-out) was replayed on **NEAR testnet**
+against the vulnerable and the fixed vault, using a dedicated, faucet-sponsored testnet account
+(`exorcist-replay-35b9fa.testnet`). After every transaction the chain state matched the Lean model.
+
+| | Vulnerable vault | Fixed vault |
+|---|---|---|
+| vault contract | [vault-x404319v](https://testnet.nearblocks.io/address/vault-x404319v.exorcist-replay-35b9fa.testnet) | [vault-x404319f2](https://testnet.nearblocks.io/address/vault-x404319f2.exorcist-replay-35b9fa.testnet) |
+| tx1: eve `ft_transfer_call(vault, 100, "notify hook")`, hook made to fail | [EBigWS13…](https://testnet.nearblocks.io/txns/EBigWS13rHHqTDYNKMsamY9d4bhcdpuR4v1GFUkMxycN): refunded **and** credited | [G9f5oowA…](https://testnet.nearblocks.io/txns/G9f5oowAE1Y1tmjBR1ePsAxmPtdSdtZ6aYcYkuPKppqG): refunded, not credited |
+| tx2: eve `withdraw(100)` | [qSjvAX1o…](https://testnet.nearblocks.io/txns/qSjvAX1otfxW8iBi2SJ9ebh5cMcYqhry2ftW5Wo3czm): **pays out 100** | [FNioJzWa…](https://testnet.nearblocks.io/txns/FNioJzWavui9B3AN4jqMkuL5FUUQeTz2RYzaPjDDCDzV): panics (no balance) |
+| final state | eve 200 tokens, vault **0**, alice's ledger still 100 | eve 100, vault 100, alice's ledger 100 |
+
+Shared contracts: [token](https://testnet.nearblocks.io/address/token-x404319.exorcist-replay-35b9fa.testnet),
+[hook](https://testnet.nearblocks.io/address/hook-x404319.exorcist-replay-35b9fa.testnet). The fixed vault
+was replayed in a second invocation (`EXORCIST_TESTNET_REUSE=x404319 EXORCIST_TESTNET_ONLY=fixed`)
+after the public RPC rate-limited the first one. The test accounts' keys are kept outside the repository.
+
 ## Axioms (`#print axioms`)
 
 ```
