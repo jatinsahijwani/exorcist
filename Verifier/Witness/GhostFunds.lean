@@ -4,7 +4,7 @@ import Verifier.Models.Deposit
 # Kernel-checked witness: ghost funds in the vulnerable vault
 
 `ghostTrace` is the shortest violating trace found by the bounded explorer
-(`nearcheck check deposit-vulnerable`). Each theorem below re-runs the trace through the
+(`exorcist check deposit-vulnerable`). Each theorem below re-runs the trace through the
 semantics and is checked by the Lean kernel with `decide` (no `native_decide`).
 
 Receipt ids: 0 = eve's `ft_transfer_call`, 1 = `vault.ft_on_transfer`, 2 = `token.ft_resolve_transfer`,

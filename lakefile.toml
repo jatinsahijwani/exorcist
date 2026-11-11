@@ -1,10 +1,10 @@
 name = "verifier"
 version = "0.1.0"
-defaultTargets = ["Verifier", "nearcheck"]
+defaultTargets = ["Verifier", "exorcist"]
 
 [[lean_lib]]
 name = "Verifier"
 
 [[lean_exe]]
-name = "nearcheck"
+name = "exorcist"
 root = "Main"
