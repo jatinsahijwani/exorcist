@@ -186,7 +186,7 @@ def prove (args : List String) : IO UInt32 := do
   let file := s!"out/prove-{m.name}.lean"
   IO.FS.writeFile file (goalHeader m ++ committedProof ++ (if noStuckApplies m then noStuckGoal m else "") ++ axiomsFooter m)
   IO.println s!"model:     {m.name} — {m.pattern}"
-  IO.println s!"statement: for EVERY trace from init (any length, any interleaving), adversary: {m.adv.describe},"
+  IO.println s!"statement: for EVERY trace from init (any length, any interleaving, ANY receipt may fail),"
   IO.println s!"           transactions from any non-contract account: Σ ledger ≤ tokens held by the vault"
   IO.println s!"general:   Proof.fixed_vault_solvent_forever — any accounts, any amounts, any code on other accounts,"
   IO.println s!"           any receipt may fail (Verifier/Proof/*.lean)"

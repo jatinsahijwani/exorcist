@@ -180,7 +180,8 @@ A pull request that reintroduces the bug, and the failing check: [docs/EXAMPLE_P
 `V ≠ T`, any code on all other accounts (it may emit any calls but cannot write the token's or the
 vault's storage), any set of receipts the adversary may fail, any transactions with any arguments and
 amounts from accounts other than `T` and `V`, and any initial state with nothing in flight and a backed
-ledger: after every finite trace, `Σ ledger ≤ tokens held by V`. It holds for both withdraw variants
+ledger: after every finite trace, `Σ ledger ≤ tokens held by V`. `concrete_fixed_solvent` is the same
+theorem instantiated for the explorer's five-actor models (what `exorcist prove` checks). It holds for both withdraw variants
 and any hook (it assumes only that deposits are credited in the callback).
 
 `NearAsync.Vault.Proof.fixed_vault_no_stuck_funds` (the withdraw pattern's property): with both fixes,
@@ -188,6 +189,7 @@ if the adversary fails only non-callback receipts (callbacks have gas reserved) 
 vault tokens with a plain `ft_transfer` (a donation is owed to no one), then from an initial state where
 the ledger equals the vault's balance: after every trace, tokens held ≤ Σ ledger + in-flight amounts,
 and whenever nothing is in flight, tokens held = Σ ledger. Other contracts are still arbitrary code.
+`concrete_no_stuck` instantiates it for `withdraw-fixed` and `noreturn-fixed`.
 
 The solvency invariant (`Verifier/Proof/Defs.lean`): Σ ledger + every refund that a pending
 `ft_resolve_transfer` may still make + every amount a pending `after_withdraw` may still restore
