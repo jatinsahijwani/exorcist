@@ -18,6 +18,10 @@ jobs:
           models: incident-2026-10-fixed deposit-fixed noreturn-fixed withdraw-fixed
           depth: "10"
           prove: "true"
+      - name: WRITE-A-MODEL walkthrough (end to end)
+        run: |
+          export PATH="$HOME/.elan/bin:$PATH"
+          scripts/test-walkthrough.sh
       - name: Agent gate (MCP server) test
         run: |
           export PATH="$HOME/.elan/bin:$PATH"
