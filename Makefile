@@ -3,7 +3,7 @@ export PATH := $(HOME)/.elan/bin:$(HOME)/.cargo/bin:$(PATH)
 SANDBOX_MODELS := deposit-vulnerable deposit-fixed noreturn-vulnerable noreturn-fixed withdraw-vulnerable withdraw-fixed
 DEPTH ?= 10
 
-.PHONY: demo quick build check prove traces sandbox wasm clean
+.PHONY: demo quick build check prove traces sandbox wasm clean test-mcp
 
 demo:            ## build, find bugs, check witnesses, prove fixes, sandbox replay, summary
 	./scripts/demo.sh
@@ -33,3 +33,6 @@ sandbox: traces wasm
 
 clean:
 	rm -rf out .lake/build sandbox/target sandbox/res/*.wasm
+
+test-mcp: build   ## MCP server: an agent is blocked from deploying the vulnerable vault, allowed after the fix
+	python3 mcp/agent_gate_demo.py

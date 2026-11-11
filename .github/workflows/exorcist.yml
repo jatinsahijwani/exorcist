@@ -15,13 +15,17 @@ jobs:
       - name: Exorcist (build, check deployed contracts, prove)
         uses: ./
         with:
-          models: deposit-fixed noreturn-fixed withdraw-fixed
+          models: incident-2026-10-fixed deposit-fixed noreturn-fixed withdraw-fixed
           depth: "10"
           prove: "true"
+      - name: Agent gate (MCP server) test
+        run: |
+          export PATH="$HOME/.elan/bin:$PATH"
+          python3 mcp/agent_gate_demo.py
       - name: Self-test — the vulnerable examples must still be caught
         run: |
           export PATH="$HOME/.elan/bin:$PATH"
-          for m in deposit-vulnerable noreturn-vulnerable withdraw-vulnerable; do
+          for m in incident-2026-10 deposit-vulnerable noreturn-vulnerable withdraw-vulnerable; do
             set +e; ./.lake/build/bin/exorcist check "$m" --depth 10 > "out-$m.txt"; code=$?; set -e
             tail -3 "out-$m.txt"
             test "$code" -eq 1 || { echo "::error::$m: expected a violation"; exit 1; }

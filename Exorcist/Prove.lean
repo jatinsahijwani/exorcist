@@ -30,6 +30,8 @@ structure ProveOpts where
   ai : Bool := false
   rounds : Nat := 5
   aiModel : Option String := none
+  json : Bool := false
+  bounded : Option Nat := none
 
 def parse : List String → ProveOpts → Except String ProveOpts
   | [], o => .ok o
@@ -38,6 +40,10 @@ def parse : List String → ProveOpts → Except String ProveOpts
     | some k => parse r { o with rounds := k }
     | none => .error s!"bad --rounds {n}"
   | "--ai-model" :: m :: r, o => parse r { o with aiModel := some m }
+  | "--json" :: r, o => parse r { o with json := true }
+  | "--bounded" :: n :: r, o => match n.toNat? with
+    | some k => parse r { o with bounded := some k }
+    | none => .error s!"bad --bounded {n}"
   | m :: r, o => if o.model == "" && !m.startsWith "--" then parse r { o with model := m } else .error s!"unexpected {m}"
 
 def theoremName (m : Model) : String := s!"{m.name.replace "-" "_"}_solvent_all_traces"
@@ -171,20 +177,62 @@ def aiLoop (m : Model) (o : ProveOpts) (key : String) : IO UInt32 := do
   IO.println s!"no accepted proof after {o.rounds} rounds (logs in out/ai/)"
   return 1
 
+def jStr' (x : String) : Json := Json.str x
+
+def emit (o : ProveOpts) (m : Model) (verdict : String) (allowed : Bool) (theorems : List String)
+    (axioms : List String) (note : String) (file : String := "") : IO Unit := do
+  if o.json then
+    IO.println (Json.mkObj [
+      ("tool", jStr' "exorcist"), ("command", jStr' "prove"), ("model", jStr' m.name),
+      ("verdict", jStr' verdict), ("deploy_allowed", Json.bool allowed),
+      ("theorems", Json.arr (theorems.toArray.map jStr')),
+      ("axioms", Json.arr (axioms.toArray.map jStr')), ("file", jStr' file), ("note", jStr' note) ]).compress
+
+/-- Kernel-checked bounded result: no trace of up to `n` steps violates the model's property. -/
+def proveBounded (m : Model) (o : ProveOpts) (n : Nat) : IO UInt32 := do
+  IO.FS.createDirAll "out"
+  let file := s!"out/bounded-{m.name}.lean"
+  let M := m.leanName
+  let thm := s!"{m.name.replace "-" "_"}_bounded_{n}"
+  IO.FS.writeFile file (
+    s!"import {m.leanModule}\nimport Verifier.Explore\nopen NearAsync NearAsync.Vault\n\n" ++
+    s!"/-- {m.name}: no trace of at most {n} steps (every interleaving and allowed failure) violates the property.\n" ++
+    s!"Checked by the Lean kernel (`decide +kernel`): this re-runs the whole bounded search in the kernel. -/\n" ++
+    s!"theorem {thm} :\n    (dfs \{ sys := ({M}).sys, init := ({M}).init, menu := ({M}).menu, ok := ({M}).prop } {n}\n" ++
+    s!"      ({M}).init ({M}).menu []).1 = none := by\n  decide +kernel\n\n#print axioms {thm}\n")
+  if !o.json then IO.println s!"kernel-checking: no violation in any trace of ≤ {n} steps ({file}) …"
+  let (ok, out) ← runLean file
+  let axs := (out.splitOn "\n").filter (·.startsWith "'")
+  if ok then
+    if !o.json then
+      IO.println s!"RESULT:    ✓ KERNEL-CHECKED, BOUNDED TO DEPTH {n} (not a proof for all traces)"
+      for l in axs do IO.println s!"axioms:    {l}"
+    emit o m s!"kernel_checked_bounded_to_depth_{n}" true [thm] axs "bounded result only" file
+    return 0
+  else
+    if !o.json then IO.println s!"RESULT:    ✗ the kernel found a violation within {n} steps, or rejected the file:\n{out.take 2000}"
+    emit o m "violation_or_error" false [] [] (out.take 500).toString file
+    return 1
+
 def prove (args : List String) : IO UInt32 := do
   let o ← match parse args {} with
     | .ok o => pure o
     | .error e => do IO.eprintln e; return 2
   let some m := findModel o.model
     | do IO.eprintln s!"unknown model '{o.model}'"; return 2
-  if m.proof.isNone && !m.vulnerable then
-    IO.println s!"{m.name}: no committed unbounded proof for this model (custom contract)."
-    IO.println s!"  Bounded result: exorcist check {m.name}. Kernel-checked bounded proof: exorcist prove {m.name} --bounded N."
-    IO.println s!"  An unbounded proof needs an invariant; see Verifier/Proof/ for the vault's, or try --ai (experimental)."
-    return 3
+  if let some n := o.bounded then return ← proveBounded m o n
   if m.vulnerable then
-    IO.println s!"{m.name} is vulnerable: there is no proof to check (run `exorcist check {m.name}` for the attack)."
+    if !o.json then
+      IO.println s!"{m.name} is vulnerable: there is no proof to check (run `exorcist check {m.name}` for the attack)."
+    emit o m "vulnerable" false [] [] s!"run exorcist check {m.name} for the attack trace"
     return 1
+  if m.proof.isNone then
+    if !o.json then
+      IO.println s!"{m.name}: no committed unbounded proof for this model (custom contract)."
+      IO.println s!"  Kernel-checked bounded result: exorcist prove {m.name} --bounded 4"
+      IO.println s!"  An unbounded proof needs an invariant; see Verifier/Proof/ for the vault's, or try --ai (experimental)."
+    emit o m "no_unbounded_proof" false [] [] s!"try: exorcist prove {m.name} --bounded 4"
+    return 3
   if o.ai then
     match ← IO.getEnv "NEARAI_API_KEY" with
     | none => IO.eprintln "--ai needs NEARAI_API_KEY in the environment (see https://cloud.near.ai)"; return 2
@@ -192,21 +240,27 @@ def prove (args : List String) : IO UInt32 := do
   IO.FS.createDirAll "out"
   let file := s!"out/prove-{m.name}.lean"
   IO.FS.writeFile file (goalHeader m ++ committedProof m ++ (if noStuckApplies m then noStuckGoal m else "") ++ axiomsFooter m)
-  IO.println s!"model:     {m.name} — {m.pattern}"
-  IO.println s!"statement: for EVERY trace from init (any length, any interleaving, ANY receipt may fail),"
-  IO.println s!"           transactions from any non-contract account: Σ ledger ≤ tokens held by the vault"
-  IO.println s!"general:   Proof.fixed_vault_solvent_forever — any accounts, any amounts, any code on other accounts,"
-  IO.println s!"           any receipt may fail (Verifier/Proof/*.lean)"
+  if !o.json then
+    IO.println s!"model:     {m.name} — {m.pattern}"
+    if let some d := m.disclaimer then IO.println s!"NOTE:      {d}"
+    IO.println s!"statement: for EVERY trace from init (any length, any interleaving, ANY receipt may fail),"
+    IO.println s!"           transactions from any non-contract account: Σ ledger ≤ tokens held by the vault"
+    IO.println s!"general:   Proof.fixed_vault_solvent_forever — any accounts, any amounts, any code on other accounts,"
+    IO.println s!"           any receipt may fail (Verifier/Proof/*.lean)"
   let (ok, out) ← runLean file
   if !ok then
-    IO.eprintln s!"✗ Lean rejected the committed proof:\n{out}"
+    if !o.json then IO.eprintln s!"✗ Lean rejected the committed proof:\n{out}"
+    emit o m "proof_failed" false [] [] (out.take 500).toString file
     return 1
-  IO.println s!"RESULT:    ✓ PROVEN FOR ALL TRACES: solvent (checked by the Lean kernel now, file {file})"
-  if noStuckApplies m then
-    IO.println "           ✓ PROVEN FOR ALL TRACES: no stuck funds (Proof.fixed_vault_no_stuck_funds; assumes no plain"
-    IO.println "             ft_transfer to the vault and only non-callback receipts fail)"
-  for l in out.splitOn "\n" do
-    if l.startsWith "'" then IO.println s!"axioms:    {l}"
+  let axs := (out.splitOn "\n").filter (·.startsWith "'")
+  let thms := [theoremName m] ++ (if noStuckApplies m then [s!"{m.name.replace "-" "_"}_no_stuck_all_traces"] else [])
+  if !o.json then
+    IO.println s!"RESULT:    ✓ PROVEN FOR ALL TRACES: solvent (checked by the Lean kernel now, file {file})"
+    if noStuckApplies m then
+      IO.println "           ✓ PROVEN FOR ALL TRACES: no stuck funds (Proof.fixed_vault_no_stuck_funds; assumes no plain"
+      IO.println "             ft_transfer to the vault and only non-callback receipts fail)"
+    for l in axs do IO.println s!"axioms:    {l}"
+  emit o m "proven_all_traces" true thms axs "kernel-checked; no sorry, no native_decide" file
   return 0
 
 end Exorcist

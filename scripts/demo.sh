@@ -68,8 +68,15 @@ for m in withdraw-fixed noreturn-fixed; do
   fi
 done
 
+hr "5. Agent gate (MCP server): an AI agent is blocked from deploying the vulnerable vault, allowed after the fix"
+if python3 mcp/agent_gate_demo.py | tee out/agent-gate.txt | tail -12; then
+  row PASS "agent gate (MCP): vulnerable blocked, fixed allowed" "check + prove via MCP"
+else
+  row FAIL "agent gate (MCP)" "-"
+fi
+
 if [ "$QUICK" != "1" ]; then
-  hr "5. Replay every trace against the real Rust contracts in a local NEAR sandbox (near-workspaces)"
+  hr "6. Replay every trace against the real Rust contracts in a local NEAR sandbox (near-workspaces)"
   if make -s traces >/dev/null && (cd sandbox && ./build-wasm.sh >/dev/null && cargo test --test replay -- --test-threads=4 2>&1 | tee /tmp/exorcist-sandbox.log | grep -E '^test |test result'); then
     while read -r line; do
       name=$(echo "$line" | sed -E 's/^test ([a-z_]+) .*/\1/')
