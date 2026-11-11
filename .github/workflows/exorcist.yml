@@ -1,0 +1,48 @@
+name: exorcist
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    name: check + prove (Lean)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exorcist (build, check deployed contracts, prove)
+        uses: ./
+        with:
+          models: deposit-fixed noreturn-fixed withdraw-fixed
+          depth: "10"
+          prove: "true"
+      - name: Self-test — the vulnerable examples must still be caught
+        run: |
+          export PATH="$HOME/.elan/bin:$PATH"
+          for m in deposit-vulnerable noreturn-vulnerable withdraw-vulnerable; do
+            set +e; ./.lake/build/bin/exorcist check "$m" --depth 10 > "out-$m.txt"; code=$?; set -e
+            tail -3 "out-$m.txt"
+            test "$code" -eq 1 || { echo "::error::$m: expected a violation"; exit 1; }
+          done
+
+  sandbox:
+    name: sandbox replay (near-workspaces)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            sandbox/target
+          key: sandbox-${{ runner.os }}-${{ hashFiles('sandbox/Cargo.lock') }}
+      - name: Install elan
+        run: curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+      - name: Export traces, build wasm, replay in the sandbox
+        run: |
+          export PATH="$HOME/.elan/bin:$PATH"
+          make sandbox

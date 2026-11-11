@@ -1,0 +1,63 @@
+name: Exorcist
+description: >
+  Finds ghost funds in NEAR contracts, or proves there are none. Runs a bounded search over all
+  receipt orderings and failures for the given models (fails the job on any violation) and,
+  optionally, kernel-checks the unbounded proofs.
+branding:
+  icon: shield
+  color: purple
+inputs:
+  models:
+    description: Space-separated model names to check (see `exorcist list`).
+    required: true
+  depth:
+    description: Search depth (steps per trace).
+    default: "10"
+  prove:
+    description: Also run `exorcist prove` for each model ("true"/"false").
+    default: "false"
+  path:
+    description: >
+      Path to the Exorcist project to build (a checkout or fork that contains your models).
+      Defaults to the action's own source.
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Install elan (Lean toolchain manager)
+      shell: bash
+      run: |
+        if ! command -v lake >/dev/null && [ ! -x "$HOME/.elan/bin/lake" ]; then
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+        fi
+        echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+    - name: Build models and proofs
+      shell: bash
+      working-directory: ${{ inputs.path != '' && inputs.path || github.action_path }}
+      run: lake build
+    - name: Check (bounded search, fails on any violation)
+      shell: bash
+      working-directory: ${{ inputs.path != '' && inputs.path || github.action_path }}
+      run: |
+        status=0
+        for m in ${{ inputs.models }}; do
+          echo "::group::exorcist check $m --depth ${{ inputs.depth }}"
+          set +e; ./.lake/build/bin/exorcist check "$m" --depth "${{ inputs.depth }}" | tee "exorcist-$m.txt"; code=${PIPESTATUS[0]}; set -e
+          echo "::endgroup::"
+          if [ "$code" -ne 0 ]; then
+            echo "::error title=Exorcist: $m::$(grep -m1 '^RESULT' exorcist-$m.txt)"
+            { echo "### ❌ $m"; echo '```'; sed -n '/^RESULT/,/^Witness/p' "exorcist-$m.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            status=1
+          else
+            echo "### ✅ $m — $(grep -m1 '^RESULT' exorcist-$m.txt)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+        done
+        exit $status
+    - name: Prove (unbounded, kernel-checked)
+      if: inputs.prove == 'true'
+      shell: bash
+      working-directory: ${{ inputs.path != '' && inputs.path || github.action_path }}
+      run: |
+        for m in ${{ inputs.models }}; do
+          ./.lake/build/bin/exorcist prove "$m" | tee -a "$GITHUB_STEP_SUMMARY"
+        done
