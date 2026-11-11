@@ -1,5 +1,9 @@
 import Verifier.Async
 import Verifier.Token
 import Verifier.Explore
-import Verifier.Models.Deposit
+import Verifier.Models.Vault
+import Verifier.Models.Registry
 import Verifier.Witness.GhostFunds
+import Verifier.Witness.NoReturn
+import Verifier.Witness.WithdrawNoRestore
+import Verifier.Witness.Liveness
