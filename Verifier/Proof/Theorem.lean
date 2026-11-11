@@ -236,4 +236,14 @@ theorem concrete_fixed_solvent (cfg : Config) (hfix : cfg.depositFixed = true) (
     _ init ⟨rfl, rfl, by decide⟩ tr hsg w hrun
   simp [solvent, this]
 
+/-- Same, from any initial state with nothing in flight and a backed ledger (e.g. the incident model's). -/
+theorem concrete_fixed_solvent_from (cfg : Config) (hfix : cfg.depositFixed = true) (adv : Adversary)
+    (w0 : W) (h0 : Initial Acct.vault w0)
+    (tr : List (Step Acct (Call Acct))) (hsg : honestSigners Acct.token Acct.vault tr)
+    (w : W) (hrun : run (system cfg adv) w0 tr = some w) : solvent w = true := by
+  rw [system_eq] at hrun
+  have := fixed_vault_solvent_forever cfg hfix .token .vault (by decide) _ (concreteOther_frame cfg)
+    _ w0 h0 tr hsg w hrun
+  simp [solvent, this]
+
 end NearAsync.Vault.Proof

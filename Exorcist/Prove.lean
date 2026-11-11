@@ -1,5 +1,5 @@
 import Lean.Data.Json
-import Verifier.Models.Registry
+import Verifier.Models.All
 import Verifier.Report
 
 /-!
@@ -48,21 +48,23 @@ def goalHeader (m : Model) : String :=
   s!"/-- {m.name}: every trace from `init`, any length, any interleaving, adversary `{leanAdv m.adv}`,\n" ++
   s!"transactions from anyone but the two contracts: the vault stays solvent. -/\n" ++
   s!"theorem {theoremName m} (tr : Tr) (hsg : Proof.honestSigners Acct.token Acct.vault tr)\n" ++
-  s!"    (w : W) (hrun : run (system {leanCfg m.cfg} {leanAdv m.adv}) init tr = some w) :\n" ++
+  s!"    (w : W) (hrun : run (system {leanCfg m.cfg} {leanAdv m.adv}) {m.initLean} tr = some w) :\n" ++
   s!"    solvent w = true := by\n"
 
-def committedProof : String := "  exact Proof.concrete_fixed_solvent _ rfl _ tr hsg w hrun\n"
+def committedProof (m : Model) : String :=
+  s!"  exact Proof.concrete_fixed_solvent_from _ rfl _ {m.initLean} ⟨rfl, rfl, by decide⟩ tr hsg w hrun\n"
 
 /-- Models whose adversary fails only non-callback receipts also get the no-stuck-funds theorem. -/
-def noStuckApplies (m : Model) : Bool := m.adv == .nonCallback || m.adv == .none
+def noStuckApplies (m : Model) : Bool := m.noStuck
 
 def noStuckGoal (m : Model) : String :=
   s!"\n/-- {m.name}: whenever nothing is in flight, every token the vault holds is owed to someone\n" ++
   s!"(no plain `ft_transfer` to the vault; only non-callback receipts fail). -/\n" ++
   s!"theorem {m.name.replace "-" "_"}_no_stuck_all_traces (tr : Tr)\n" ++
   s!"    (htx : Proof.honestTxs Acct.token Acct.vault tr) (w : W)\n" ++
-  s!"    (hrun : run (system {leanCfg m.cfg} {leanAdv m.adv}) init tr = some w) : noStuck w = true :=\n" ++
-  s!"  Proof.concrete_no_stuck _ rfl rfl _ (fun r h => by simpa [canFail] using h) tr htx w hrun\n"
+  s!"    (hrun : run (system {leanCfg m.cfg} {leanAdv m.adv}) {m.initLean} tr = some w) : noStuck w = true :=\n" ++
+  s!"  Proof.concrete_no_stuck_from _ rfl rfl _ (fun r h => by simpa [canFail] using h) {m.initLean}\n" ++
+  s!"    ⟨rfl, rfl, by decide, by decide⟩ tr htx w hrun\n"
 
 def axiomsFooter (m : Model) : String :=
   s!"\n#print axioms {theoremName m}\n#print axioms NearAsync.Vault.Proof.fixed_vault_solvent_forever\n" ++
@@ -175,6 +177,11 @@ def prove (args : List String) : IO UInt32 := do
     | .error e => do IO.eprintln e; return 2
   let some m := findModel o.model
     | do IO.eprintln s!"unknown model '{o.model}'"; return 2
+  if m.proof.isNone && !m.vulnerable then
+    IO.println s!"{m.name}: no committed unbounded proof for this model (custom contract)."
+    IO.println s!"  Bounded result: exorcist check {m.name}. Kernel-checked bounded proof: exorcist prove {m.name} --bounded N."
+    IO.println s!"  An unbounded proof needs an invariant; see Verifier/Proof/ for the vault's, or try --ai (experimental)."
+    return 3
   if m.vulnerable then
     IO.println s!"{m.name} is vulnerable: there is no proof to check (run `exorcist check {m.name}` for the attack)."
     return 1
@@ -184,7 +191,7 @@ def prove (args : List String) : IO UInt32 := do
     | some key => return ← aiLoop m o key
   IO.FS.createDirAll "out"
   let file := s!"out/prove-{m.name}.lean"
-  IO.FS.writeFile file (goalHeader m ++ committedProof ++ (if noStuckApplies m then noStuckGoal m else "") ++ axiomsFooter m)
+  IO.FS.writeFile file (goalHeader m ++ committedProof m ++ (if noStuckApplies m then noStuckGoal m else "") ++ axiomsFooter m)
   IO.println s!"model:     {m.name} — {m.pattern}"
   IO.println s!"statement: for EVERY trace from init (any length, any interleaving, ANY receipt may fail),"
   IO.println s!"           transactions from any non-contract account: Σ ledger ≤ tokens held by the vault"

@@ -709,18 +709,24 @@ theorem concreteOther_noDonate (cfg : Config) : NoDonate Acct.token Acct.vault (
   split at h <;> simp_all
 
 /-- The explorer's fixed models under adversaries that fail only non-callback receipts
-(`withdraw-fixed`, `noreturn-fixed`) have no stuck funds, for every trace (not just to depth N). -/
-theorem concrete_no_stuck (cfg : Config) (hfix : cfg.depositFixed = true) (hwfix : cfg.withdrawFixed = true)
-    (adv : Adversary) (hadv : ∀ r, canFail adv r = true → r.waitsOn = none)
+(`withdraw-fixed`, `noreturn-fixed`) have no stuck funds, for every trace (not just to depth N),
+from any exact initial state. -/
+theorem concrete_no_stuck_from (cfg : Config) (hfix : cfg.depositFixed = true) (hwfix : cfg.withdrawFixed = true)
+    (adv : Adversary) (hadv : ∀ r, canFail adv r = true → r.waitsOn = none) (w0 : W) (h0 : InitialExact Acct.vault w0)
     (tr : List (Step Acct (Call Acct))) (htx : honestTxs Acct.token Acct.vault tr)
-    (w : W) (hrun : run (system cfg adv) init tr = some w) : noStuck w = true := by
+    (w : W) (hrun : run (system cfg adv) w0 tr = some w) : noStuck w = true := by
   rw [system_eq] at hrun
   have := fixed_vault_no_stuck_funds cfg hfix hwfix .token .vault (by decide) _ (concreteOther_frame _)
-    (concreteOther_noDonate _) _ hadv init
-    ⟨rfl, rfl, by decide, by decide⟩ tr htx w hrun
+    (concreteOther_noDonate _) _ hadv w0 h0 tr htx w hrun
   unfold noStuck
   cases hp : w.pending with
   | nil => have := this.2 hp; simp [hp, this]
   | cons _ _ => simp
+
+theorem concrete_no_stuck (cfg : Config) (hfix : cfg.depositFixed = true) (hwfix : cfg.withdrawFixed = true)
+    (adv : Adversary) (hadv : ∀ r, canFail adv r = true → r.waitsOn = none)
+    (tr : List (Step Acct (Call Acct))) (htx : honestTxs Acct.token Acct.vault tr)
+    (w : W) (hrun : run (system cfg adv) init tr = some w) : noStuck w = true :=
+  concrete_no_stuck_from cfg hfix hwfix adv hadv init ⟨rfl, rfl, by decide, by decide⟩ tr htx w hrun
 
 end NearAsync.Vault.Proof

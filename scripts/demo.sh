@@ -23,13 +23,14 @@ else
   row FAIL "lake build" "-"; echo "build failed"; exit 1
 fi
 
-hr "2. Find the bugs (exorcist check, bounded search)"
-for m in deposit-vulnerable noreturn-vulnerable withdraw-vulnerable; do
+mkdir -p out
+hr "2. Find the bugs (exorcist check, bounded search) — starting with a minimal model of the Oct 2026 NEAR Intents mechanism (not their contract)"
+for m in incident-2026-10 deposit-vulnerable noreturn-vulnerable withdraw-vulnerable; do
   echo; echo "\$ exorcist check $m --depth $DEPTH"
-  out=$($EX check "$m" --depth "$DEPTH" --json "sandbox/traces/$m.json" 2>&1; echo "exit=$?")
-  echo "$out" | sed -n '/^RESULT/,/kernel/p'
+  out=$($EX check "$m" --depth "$DEPTH" --json "out/$m.json" 2>&1; echo "exit=$?")
+  echo "$out" | sed -n '/^NOTE/p;/^RESULT/,/kernel/p'
   code=$(echo "$out" | tail -1 | cut -d= -f2)
-  d=$(python3 -c "import json;print(json.load(open('sandbox/traces/$m.json'))['violation']['depth'])" 2>/dev/null || echo "?")
+  d=$(python3 -c "import json;d=json.load(open('out/$m.json'));print(f\"{d['violation']['depth']} ({d['states_explored']} states)\")" 2>/dev/null || echo "?")
   if [ "$code" = "1" ] && [ -f "out/$m.witness.lean" ] && lake env lean "out/$m.witness.lean" >/dev/null 2>&1; then
     row PASS "$m: attack found, witness theorem kernel-checked" "found at depth $d"
   else
@@ -38,9 +39,9 @@ for m in deposit-vulnerable noreturn-vulnerable withdraw-vulnerable; do
 done
 
 hr "3. Check the fixed contracts (bounded search) and that honest use still works"
-for m in deposit-fixed noreturn-fixed withdraw-fixed; do
+for m in incident-2026-10-fixed deposit-fixed noreturn-fixed withdraw-fixed; do
   echo; echo "\$ exorcist check $m --depth $DEPTH"
-  out=$($EX check "$m" --depth "$DEPTH" --json "sandbox/traces/$m.json" 2>&1; echo "exit=$?")
+  out=$($EX check "$m" --depth "$DEPTH" --json "out/$m.json" 2>&1; echo "exit=$?")
   echo "$out" | sed -n '/^RESULT/,/^JSON/p' | grep -v '^JSON'
   code=$(echo "$out" | tail -1 | cut -d= -f2)
   if [ "$code" = "0" ]; then
@@ -51,7 +52,7 @@ for m in deposit-fixed noreturn-fixed withdraw-fixed; do
 done
 
 hr "4. Prove the fixes (exorcist prove, unbounded, offline)"
-for m in deposit-fixed noreturn-fixed withdraw-fixed; do
+for m in incident-2026-10-fixed deposit-fixed noreturn-fixed withdraw-fixed; do
   echo; echo "\$ exorcist prove $m"
   if $EX prove "$m" | tee "out/prove-$m.axioms.txt"; then
     row PASS "$m: solvent (sum of ledger <= tokens held)" "proven for all traces"
@@ -69,7 +70,7 @@ done
 
 if [ "$QUICK" != "1" ]; then
   hr "5. Replay every trace against the real Rust contracts in a local NEAR sandbox (near-workspaces)"
-  if (cd sandbox && ./build-wasm.sh >/dev/null && cargo test --test replay -- --test-threads=4 2>&1 | tee /tmp/exorcist-sandbox.log | grep -E '^test |test result'); then
+  if make -s traces >/dev/null && (cd sandbox && ./build-wasm.sh >/dev/null && cargo test --test replay -- --test-threads=4 2>&1 | tee /tmp/exorcist-sandbox.log | grep -E '^test |test result'); then
     while read -r line; do
       name=$(echo "$line" | sed -E 's/^test ([a-z_]+) .*/\1/')
       label="matches model step by step"

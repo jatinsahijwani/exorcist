@@ -9,3 +9,4 @@ import Verifier.Witness.WithdrawNoRestore
 import Verifier.Witness.Liveness
 import Verifier.Proof.Theorem
 import Verifier.Proof.NoStuckCases
+import Verifier.Witness.Incident
