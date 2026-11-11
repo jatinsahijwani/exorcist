@@ -14,6 +14,9 @@ The network for the proofs is fully general:
 -/
 
 set_option linter.unusedSectionVars false
+set_option linter.unusedSimpArgs false
+set_option linter.unusedVariables false
+set_option linter.deprecated false
 
 namespace NearAsync.Vault.Proof
 

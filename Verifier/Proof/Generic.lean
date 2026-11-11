@@ -3,6 +3,9 @@ import Verifier.Proof.Defs
 /-! Structural part of the invariant proof: failures, refunds, and facts shared by all cases. -/
 
 set_option linter.unusedSectionVars false
+set_option linter.unusedSimpArgs false
+set_option linter.unusedVariables false
+set_option linter.deprecated false
 
 namespace NearAsync.Vault.Proof
 

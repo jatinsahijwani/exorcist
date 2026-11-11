@@ -2,6 +2,7 @@
 # Build the sandbox contracts to wasm (res/). Variants of the vault are separate builds.
 set -euo pipefail
 cd "$(dirname "$0")"
+mkdir -p res
 T=wasm32-unknown-unknown
 OUT=target/$T/release
 cargo build -q --target $T --release -p exorcist-token -p exorcist-hook

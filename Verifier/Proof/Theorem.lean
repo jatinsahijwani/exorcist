@@ -8,6 +8,9 @@ any number of accounts, arbitrary attacker contracts. See `Defs.lean` for the ex
 -/
 
 set_option linter.unusedSectionVars false
+set_option linter.unusedSimpArgs false
+set_option linter.unusedVariables false
+set_option linter.deprecated false
 
 namespace NearAsync.Vault.Proof
 

@@ -13,6 +13,9 @@ Proof: `Inv` (see `Defs.lean`) holds initially and is preserved by every step.
 -/
 
 set_option linter.unusedSectionVars false
+set_option linter.unusedSimpArgs false
+set_option linter.unusedVariables false
+set_option linter.deprecated false
 set_option maxHeartbeats 1000000
 
 namespace NearAsync.Vault.Proof

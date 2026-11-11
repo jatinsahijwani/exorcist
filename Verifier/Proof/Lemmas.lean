@@ -3,6 +3,9 @@ import Verifier.Async
 /-! Generic lemmas about balances, lists and the semantics, used by the invariant proofs. -/
 
 set_option linter.unusedSectionVars false
+set_option linter.unusedSimpArgs false
+set_option linter.unusedVariables false
+set_option linter.deprecated false
 
 namespace NearAsync
 
