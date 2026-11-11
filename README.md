@@ -56,7 +56,8 @@ axioms:    'NearAsync.Vault.Proof.fixed_vault_solvent_forever' depends on axioms
 ```
 
 Timings vary by machine. Exorcist also checks three other bug patterns, proves two properties of the fixed
-vault, and replays every trace on real Rust contracts in a local NEAR sandbox and on NEAR testnet.
+vault, and replays every trace on real Rust contracts in a local NEAR sandbox; the deposit attack was also
+replayed on NEAR testnet.
 
 ## Try it in 2 minutes
 
@@ -93,7 +94,7 @@ above, `RESULT: VIOLATION (attacker_profit) at depth 8, 26191 states explored`, 
 (about 20–30 s to build, 15 s to check). You see `created Verifier/Models/User/Vault.lean and registered model 'vault' in Verifier/Models/User.lean`,
 then `RESULT: NO VIOLATION — bounded to depth 10: 8251651 states explored` and
 `✓ reachable in 4 steps: alice withdraws her 100`. Edit `handle` in that file to try a bug
-([docs/WRITE-A-MODEL.md](docs/WRITE-A-MODEL.md)); `git checkout Verifier/Models/User.lean && rm -r Verifier/Models/User/` undoes it.
+([docs/WRITE-A-MODEL.md](docs/WRITE-A-MODEL.md)); `git checkout Verifier/Models/User.lean && rm -r Verifier/Models/User/ && lake build exorcist` undoes it.
 
 ## For automated reviewers
 
@@ -117,21 +118,26 @@ output. Run commands from the repo root after `make quick`. "Contains" means the
 | 13 | The model matches real Rust contracts in the NEAR sandbox, transaction by transaction | `sandbox/tests/replay.rs` | `make sandbox` | contains `test result: ok. 9 passed` |
 | 14 | On NEAR testnet the attack drains the vulnerable vault and leaves the fixed one whole (all 4 transactions are final) | [vulnerable deposit tx](https://testnet.nearblocks.io/txns/EBigWS13rHHqTDYNKMsamY9d4bhcdpuR4v1GFUkMxycN), [fixed deposit tx](https://testnet.nearblocks.io/txns/G9f5oowAE1Y1tmjBR1ePsAxmPtdSdtZ6aYcYkuPKppqG), [docs/RESULTS.md](docs/RESULTS.md#testnet-replay-run-on-2026-11-11) | `scripts/verify-testnet.sh` | ends with `4/4 FINAL` |
 | 15 | An AI agent using the MCP gate is blocked from deploying the vulnerable vault and allowed after the fix | `mcp/exorcist_mcp.py`, [docs/AGENT-GATE.md](docs/AGENT-GATE.md) | `python3 mcp/agent_gate_demo.py` | contains `PASS: vulnerable contract blocked, fixed contract allowed` |
-| 16 | CI fails a PR that reintroduces the bug ([PR #1](https://github.com/jatinsahijwani/exorcist/pull/1)) | `.github/workflows/exorcist.yml`, `action.yml` | `curl -s -o pr1.json https://api.github.com/repos/jatinsahijwani/exorcist/commits/example/vulnerable-pr/check-runs && grep '"conclusion"' pr1.json` | `"conclusion": "failure"` twice (both jobs) |
+| 16 | CI fails a PR that reintroduces the bug ([PR #1](https://github.com/jatinsahijwani/exorcist/pull/1)) | `.github/workflows/exorcist.yml`, `action.yml` | `curl -s -o /tmp/pr1.json https://api.github.com/repos/jatinsahijwani/exorcist/commits/example/vulnerable-pr/check-runs && grep '"conclusion"' /tmp/pr1.json` | `"conclusion": "failure"` twice (both jobs) |
 | 17 | NEAR AI drafts of our three contracts match the hand-written models (experimental) | `drafts/*.lean`, [drafts/ASSESSMENT.md](drafts/ASSESSMENT.md) | `scripts/verify-drafts.sh` (no key needed) | 8 table lines, each containing `✓ same` |
 | 17b | Every NEAR AI draft compiled in the first round | `drafts/drafts-run.log` (log of the real run) | `grep -c 'round 1: ✓' drafts/drafts-run.log` | `5` |
-| 18 | You can model your own contract and check it | [docs/WRITE-A-MODEL.md](docs/WRITE-A-MODEL.md) | `scripts/test-walkthrough.sh` | contains `WALKTHROUGH PASS` |
-| 19 | The draft pipeline (request, compile, repair loop, comparison) works | `Exorcist/Draft.lean` | `scripts/test-draft.sh` | contains `DRAFT PIPELINE PASS` |
+| 18 | You can model your own contract and check it; the walkthrough's "debit on success" variant pays alice twice | [docs/WRITE-A-MODEL.md](docs/WRITE-A-MODEL.md) | `scripts/test-walkthrough.sh` | contains `VIOLATION (insolvent) at depth 8, 121612 states explored`, `alice=200` and `WALKTHROUGH PASS` |
+| 19 | The draft pipeline (request, compile, repair loop, comparison) works, tested against a mock API | `Exorcist/Draft.lean`, `scripts/mock-nearai.py` | `scripts/test-draft.sh` | contains `DRAFT PIPELINE PASS (mock API` |
 | 20 | Everything above in one command | `scripts/demo.sh` | `make demo` | ends with `ALL PASS` |
 | 21 | Facts about the incident ($3.8M, 23 failed deposits, withdrawals Sept 29 – Oct 1, Oct 16 postmortem, notification mechanism, monitoring "did not compare users' aggregate internal balances", funds returned) | external | open the [postmortem summary](https://cryptonews.net/news/security/33604900/) | the quoted sentences and figures |
 | 22 | NEAR AI solved 672 PutnamBench problems for about $112 | external | open [nearai/putnambench-deepseek](https://github.com/nearai/putnambench-deepseek) | "672 problems solved", "~$112" |
 | 23 | NEAR announced it is next applying AI-assisted verification to "the NEAR protocol and core smart contracts" | external | open [crypto.news](https://crypto.news/near-ai-formal-verification-protocol-smart-contracts/) | that phrase |
 | 24 | The token model follows the near-sdk-rs 5.30.1 reference, including the `min(unused, receiver balance)` refund; every semantic rule is sourced | `Verifier/Token.lean`, [docs/SEMANTICS.md](docs/SEMANTICS.md) | `grep -n "min rb unused" Verifier/Token.lean` | `let refund := min rb unused` |
 | 25 | `exorcist prove --ai` calls NEAR AI Cloud (works with a key; without a valid key it reports the API's answer) | `Exorcist/Prove.lean` | `NEARAI_API_KEY=invalid ./.lake/build/bin/exorcist prove deposit-fixed --ai --rounds 1` | contains `cloud-api.near.ai` and `Invalid or expired API key` |
-| 26 | `check --json` writes machine-readable results | `Main.lean` | `./.lake/build/bin/exorcist check deposit-fixed --json out.json >/dev/null; python3 -m json.tool out.json >/dev/null && echo valid` | `valid` |
-| 27 | CI is green on `main` (incl. agent-gate, walkthrough and draft-pipeline tests) | `.github/workflows/exorcist.yml` | `curl -s -o main.json https://api.github.com/repos/jatinsahijwani/exorcist/commits/main/check-runs && grep '"conclusion"' main.json` | `"conclusion": "success"` for each job |
+| 26 | `check --json` writes machine-readable results, with the state after every step | `Main.lean` | `./.lake/build/bin/exorcist check deposit-vulnerable --json /tmp/dv.json >/dev/null; python3 -c "import json; d=json.load(open('/tmp/dv.json')); print(len([s for s in d['violation']['trace'] if 'state_after' in s]), 'steps with state')"` | `5 steps with state` |
+| 27 | CI is green on `main` (incl. agent-gate, walkthrough and draft-pipeline tests) | `.github/workflows/exorcist.yml` | `curl -s -o /tmp/main.json https://api.github.com/repos/jatinsahijwani/exorcist/commits/main/check-runs && grep '"conclusion"' /tmp/main.json` | `"conclusion": "success"` for each job |
 | 28 | The live results page is up | `docs/site/index.html` | `curl -s -o /dev/null -w '%{http_code}' https://jatinsahijwani.github.io/exorcist/` | `200` |
-| 29 | Toolchains are pinned | `lean-toolchain`, `sandbox/rust-toolchain.toml`, `sandbox/Cargo.lock` | `cat lean-toolchain sandbox/rust-toolchain.toml` | `leanprover/lean4:v4.34.0` and `channel = "1.96.0"` |
+| 29 | Toolchains and libraries are pinned (Lean 4.34.0, Rust 1.96.0, near-sdk 5.30.1, near-workspaces 0.24.0) | `lean-toolchain`, `sandbox/rust-toolchain.toml`, `sandbox/Cargo.lock` | `cat lean-toolchain sandbox/rust-toolchain.toml; grep -A1 'name = "near-sdk"$' sandbox/Cargo.lock; grep -A1 'name = "near-workspaces"$' sandbox/Cargo.lock` | `leanprover/lean4:v4.34.0`, `channel = "1.96.0"`, `version = "5.30.1"`, `version = "0.24.0"` |
+| 30 | On testnet the chain state matched the model after every transaction, for both vaults | `docs/testnet-replay-vulnerable.log`, `docs/testnet-replay-fixed.log` (output of `scripts/testnet-replay.sh`) | `grep -h "matches the model after every transaction" docs/testnet-replay-*.log` | 2 lines (vulnerable and fixed vault) |
+| 31 | The testnet script refuses anything that is not testnet | `scripts/testnet-replay.sh` | `EXORCIST_TESTNET_ACCOUNT=someone.near scripts/testnet-replay.sh` | `refusing: someone.near is not a .testnet account` |
+| 32 | `prove --bounded N` re-runs the bounded search inside the Lean kernel | `Exorcist/Prove.lean` | `./.lake/build/bin/exorcist prove deposit-fixed --bounded 4` | contains `KERNEL-CHECKED, BOUNDED TO DEPTH 4` and `depends on axioms: [propext]` |
+| 33 | The AI loops reject proposals that use `sorry`, `admit`, `native_decide` or new axioms, or change the statement | `Exorcist/Prove.lean`, `Exorcist/Draft.lean` | `grep -n 'def forbidden' Exorcist/Prove.lean` | `def forbidden : List String := ["sorry", "admit", "native_decide", "axiom ",` (then two more entries) |
+| 34 | A reusable GitHub Action is provided | `action.yml` | `grep -c 'using: composite' action.yml` | `1` |
 
 ## What Exorcist does not claim
 
@@ -213,7 +219,7 @@ the invariant Exorcist checks. ([cryptonews summary of the Oct 16 postmortem](ht
 applies the fix, and is allowed after `check` and `prove` pass ([docs/AGENT-GATE.md](docs/AGENT-GATE.md)).
 In CI the same check blocks pull requests: [PR #1](https://github.com/jatinsahijwani/exorcist/pull/1)
 reintroduces the bug and its [check fails](https://github.com/jatinsahijwani/exorcist/actions/runs/43002422958)
-with the attack trace ([docs/EXAMPLE_PR.md](docs/EXAMPLE_PR.md)).
+(claim 16); [docs/EXAMPLE_PR.md](docs/EXAMPLE_PR.md) shows the attack trace that check prints.
 
 ## Full reproduction
 

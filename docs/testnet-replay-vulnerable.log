@@ -1,0 +1,21 @@
+root exorcist-replay-35b9fa.testnet balance 13.39 NEAR (this run needs about 9.75 NEAR)
+deploying token + hook (shared) ...
+  token https://testnet.nearblocks.io/address/token-x404319.exorcist-replay-35b9fa.testnet
+  hook  https://testnet.nearblocks.io/address/hook-x404319.exorcist-replay-35b9fa.testnet
+
+== vulnerable vault: setting up alice (100 deposited) and eve (100 tokens) ...
+  vault https://testnet.nearblocks.io/address/vault-x404319v.exorcist-replay-35b9fa.testnet
+   tx1 "eve" → "token".ft_transfer_call  receipts [("hook", "on_deposit", "failed"), ("token", "ft_resolve_transfer", "ok"), ("token", "ft_transfer_call", "ok"), ("vault", "ft_on_transfer", "ok")]
+        sandbox {"ft.alice": 0, "ft.eve": 100, "ft.hook": 0, "ft.vault": 100, "ledger.alice": 100, "ledger.eve": 100}
+   tx2 "eve" → "vault".withdraw  receipts [("token", "ft_transfer", "ok"), ("vault", "after_withdraw", "ok"), ("vault", "withdraw", "ok")]
+        sandbox {"ft.alice": 0, "ft.eve": 200, "ft.hook": 0, "ft.vault": 0, "ledger.alice": 100, "ledger.eve": 0}
+   ✓ deposit attack on the vulnerable vault: chain state matches the model after every transaction
+  tx1 https://testnet.nearblocks.io/txns/EBigWS13rHHqTDYNKMsamY9d4bhcdpuR4v1GFUkMxycN
+  tx2 https://testnet.nearblocks.io/txns/qSjvAX1otfxW8iBi2SJ9ebh5cMcYqhry2ftW5Wo3czm
+  final: vault holds 0 tokens, ledger alice=100 eve=0, eve holds 200
+
+== fixed vault: setting up alice (100 deposited) and eve (100 tokens) ...
+Error: unable to fulfill the query request
+
+Caused by:
+    this client has exceeded the rate limit

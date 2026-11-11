@@ -1,0 +1,17 @@
+root exorcist-replay-35b9fa.testnet balance 3.91 NEAR (this run needs about 9.75 NEAR)
+reusing token + hook of run x404319 ...
+  token https://testnet.nearblocks.io/address/token-x404319.exorcist-replay-35b9fa.testnet
+  hook  https://testnet.nearblocks.io/address/hook-x404319.exorcist-replay-35b9fa.testnet
+
+== fixed vault: setting up alice (100 deposited) and eve (100 tokens) ...
+  vault https://testnet.nearblocks.io/address/vault-x404319f2.exorcist-replay-35b9fa.testnet
+   tx1 "eve" → "token".ft_transfer_call  receipts [("hook", "on_deposit", "failed"), ("token", "ft_resolve_transfer", "ok"), ("token", "ft_transfer_call", "ok"), ("vault", "after_notify", "ok"), ("vault", "ft_on_transfer", "ok")]
+        sandbox {"ft.alice": 0, "ft.eve": 100, "ft.hook": 0, "ft.vault": 100, "ledger.alice": 100, "ledger.eve": 0}
+   tx2 "eve" → "vault".withdraw  receipts [("vault", "withdraw", "failed")]
+        sandbox {"ft.alice": 0, "ft.eve": 100, "ft.hook": 0, "ft.vault": 100, "ledger.alice": 100, "ledger.eve": 0}
+   ✓ deposit attack on the fixed vault: chain state matches the model after every transaction
+  tx1 https://testnet.nearblocks.io/txns/G9f5oowAE1Y1tmjBR1ePsAxmPtdSdtZ6aYcYkuPKppqG
+  tx2 https://testnet.nearblocks.io/txns/FNioJzWavui9B3AN4jqMkuL5FUUQeTz2RYzaPjDDCDzV
+  final: vault holds 100 tokens, ledger alice=100 eve=0, eve holds 100
+
+Done. Both runs matched the Lean model transaction by transaction.

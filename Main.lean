@@ -164,7 +164,7 @@ def main (args : List String) : IO UInt32 := do
   match args with
   | ["list"] =>
     for m in allModels do
-      IO.println s!"{m.name.pushn ' ' (24 - m.name.length)}{if m.vulnerable then "vulnerable" else "fixed     "}  {m.pattern}: {m.summary}"
+      IO.println s!"{m.name.pushn ' ' (30 - m.name.length)}{if m.vulnerable then "vulnerable" else "fixed     "}  {m.pattern}: {m.summary}"
     return 0
   | "check" :: rest =>
     match parseCheck rest {} with
