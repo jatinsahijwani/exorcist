@@ -2,6 +2,7 @@
 export PATH := $(HOME)/.elan/bin:$(HOME)/.cargo/bin:$(PATH)
 SANDBOX_MODELS := deposit-vulnerable deposit-fixed noreturn-vulnerable noreturn-fixed withdraw-vulnerable withdraw-fixed
 DEPTH ?= 10
+LAKE ?= $(shell command -v lake 2>/dev/null || echo $(HOME)/.elan/bin/lake)
 
 .PHONY: demo quick build check prove traces sandbox wasm clean test-mcp drafts test-draft test-walkthrough
 
@@ -12,7 +13,7 @@ quick:           ## same without the sandbox
 	QUICK=1 ./scripts/demo.sh
 
 build:
-	lake build
+	$(LAKE) build
 
 check: build     ## fails if any FIXED model has a violation, or a vulnerable model is not caught
 	@for m in incident-2026-10-fixed deposit-fixed noreturn-fixed withdraw-fixed; do ./.lake/build/bin/exorcist check $$m --depth $(DEPTH) || exit 1; done
@@ -23,7 +24,8 @@ prove: build
 	@for m in incident-2026-10-fixed deposit-fixed noreturn-fixed withdraw-fixed; do ./.lake/build/bin/exorcist prove $$m || exit 1; done
 
 traces: build    ## export JSON traces for the sandbox
-	@for m in $(SANDBOX_MODELS); do ./.lake/build/bin/exorcist check $$m --depth $(DEPTH) --json sandbox/traces/$$m.json >/dev/null 2>&1; done; ls sandbox/traces
+	@for m in $(SANDBOX_MODELS); do ./.lake/build/bin/exorcist check $$m --depth $(DEPTH) --json sandbox/traces/$$m.json >/dev/null 2>&1; done
+	@python3 scripts/strip-timing.py sandbox/traces/*.json; ls sandbox/traces
 
 wasm:
 	cd sandbox && ./build-wasm.sh

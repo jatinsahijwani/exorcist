@@ -2,7 +2,7 @@
 
 AI agents now write and ship contracts. An agent with deploy rights should not be trusted to notice
 an async accounting bug in its own code. `mcp/exorcist_mcp.py` is a small MCP server (stdio,
-Python standard library only) that gives any MCP-capable agent two tools:
+Python standard library only) that gives any MCP-capable agent three tools:
 
 | Tool | Input | Returns |
 |---|---|---|

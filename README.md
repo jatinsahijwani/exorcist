@@ -121,8 +121,8 @@ curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf 
 git clone https://github.com/jatinsahijwani/exorcist && cd exorcist
 ```
 
-**1. Fast screening, no sandbox** (under a minute once Lean is installed; the first run also downloads
-the Lean toolchain, a few minutes):
+**1. Fast screening, no sandbox** (about 1.5 minutes on a fresh clone with Lean installed, under a minute
+afterwards; the very first run also downloads the Lean toolchain, a few minutes):
 
 ```sh
 make quick
@@ -195,7 +195,7 @@ axioms:    'NearAsync.Vault.Proof.fixed_vault_solvent_forever' depends on axioms
 ```
 
 **4. Everything, including the real-contract sandbox replay** (the first run downloads Rust and compiles
-the Rust dependencies, about 5–10 minutes; later runs about 1–2 minutes):
+the Rust dependencies, about 5–10 minutes; later runs about 3–5 minutes):
 
 ```sh
 make demo
@@ -314,7 +314,7 @@ credit or vault transfer has its callback waiting on it for at least that amount
 | `Main.lean`, `Exorcist/Prove.lean` | `exorcist` CLI (`check`, `prove`, `--ai`) |
 | `sandbox/` | Rust contracts, replay library, near-workspaces tests, testnet binary |
 | `mcp/` | MCP agent-gate server and the scripted agent test |
-| `Verifier/Models/User/` | models created by `exorcist new` |
+| `Verifier/Models/User.lean` | registry of your models (`exorcist new` creates them under `Verifier/Models/User/`) |
 | `scripts/` | `demo.sh`, `testnet-replay.sh`, `test-walkthrough.sh`, `drafts.sh`, `record-demo.py` |
 | `docs/site/` | static results page (for GitHub Pages; deploy with the manual `pages` workflow once public) |
 | `action.yml`, `.github/workflows/` | reusable GitHub Action and this repo's CI |
