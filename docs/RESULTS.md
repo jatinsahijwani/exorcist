@@ -19,8 +19,9 @@ Regenerate everything with `make demo`.
 | `withdraw-vulnerable` | debits, `ft_transfer`, never restores on failure | **funds stuck** after 5 steps (3,622 states) | found within depth 10 | `Witness/WithdrawNoRestore.lean`: `withdraw_funds_stuck` |
 | `withdraw-fixed` | restores the ledger in `after_withdraw` on failure | no violation (11,154,645 states) | bounded to depth 10 | `withdraw_fixed_restores` (the attack trace, replayed) |
 | `withdraw-fixed` | same | **solvent** | **proven for all traces** | `fixed_vault_solvent_forever` |
-| `withdraw-fixed` | same | **no stuck funds** (tokens held = Σ ledger whenever nothing is in flight) | **proven for all traces** | `Proof/NoStuckCases.lean`: `fixed_vault_no_stuck_funds` |
-| `noreturn-fixed` | fixed vault, hook returns nothing | **no stuck funds** | **proven for all traces** | `concrete_no_stuck` |
+| `withdraw-fixed` | same | **no stuck funds** (tokens held = Σ ledger whenever nothing is in flight), **assuming callbacks don't fail and no plain `ft_transfer` donations** | **proven for all traces** (under those assumptions) | `Proof/NoStuckCases.lean`: `fixed_vault_no_stuck_funds` |
+| `withdraw-fixed-callback-fail` | the fixed vault, but the adversary may also fail callbacks | **funds stuck** after 4 steps (167 states): the token's `ft_resolve_transfer` runs out of gas, so a deposit stays uncredited. Solvency still holds | found at depth 4: shows the no-stuck assumption is necessary | generated witness |
+| `noreturn-fixed` | fixed vault, hook returns nothing | **no stuck funds** (same assumptions) | **proven for all traces** (under those assumptions) | `concrete_no_stuck` |
 
 The fixes are not vacuous: `Witness/Liveness.lean` proves (kernel, `decide`) for both fixed
 configurations that an honest deposit through a succeeding hook is credited and that withdraw pays

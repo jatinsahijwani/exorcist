@@ -44,7 +44,7 @@ footer{margin-top:3rem;color:var(--muted);font-size:.9rem}
 
 <div class="grid">
   <div class="card"><b>8 steps</b>to reconstruct the Oct 2026 mechanism, found automatically in 26,191 states</div>
-  <div class="card"><b>2 theorems</b>for all traces: the fixed vault stays solvent and strands no funds</div>
+  <div class="card"><b>2 theorems</b>for all traces: the fixed vault is solvent, and leaves no funds stuck (assuming callbacks don't fail and no donations)</div>
   <div class="card"><b>8 / 8</b>sandbox replays match the model after every transaction</div>
   <div class="card"><b>0</b>uses of <code>sorry</code> or <code>native_decide</code>; standard axioms only</div>
 </div>
@@ -79,13 +79,14 @@ footer{margin-top:3rem;color:var(--muted);font-size:.9rem}
 <tr><td><code>noreturn-vulnerable</code></td><td class="bad">insolvent with no failure at all (hook returns nothing)</td><td><span class="tag">depth 5 · 438 states</span></td></tr>
 <tr><td><code>withdraw-vulnerable</code></td><td class="bad">user funds stuck after a failed payout</td><td><span class="tag">depth 5 · 3,622 states</span></td></tr>
 <tr><td><code>deposit-fixed</code>, <code>noreturn-fixed</code>, <code>withdraw-fixed</code></td><td class="ok">no violation (1.04M / 0.84M / 11.2M states); solvent</td><td><span class="tag">bounded to depth 10</span> <span class="tag proven">proven for all traces</span></td></tr>
-<tr><td><code>withdraw-fixed</code>, <code>noreturn-fixed</code></td><td class="ok">no stuck funds: tokens held = ledger whenever nothing is in flight</td><td><span class="tag proven">proven for all traces</span></td></tr>
+<tr><td><code>withdraw-fixed</code>, <code>noreturn-fixed</code></td><td class="ok">no stuck funds: tokens held = ledger whenever nothing is in flight. Assumes callbacks don't fail and no plain <code>ft_transfer</code> donations</td><td><span class="tag proven">proven for all traces (under those assumptions)</span></td></tr>
+<tr><td><code>withdraw-fixed-callback-fail</code></td><td class="bad">if callbacks may fail, funds get stuck (the token's resolve runs out of gas); solvency still holds</td><td><span class="tag">depth 4 · 167 states</span></td></tr>
 <tr><td>sandbox (near-workspaces, Rust contracts)</td><td class="ok">8 trace replays match the model; the negative control passes</td><td><span class="tag">real contracts</span></td></tr>
 <tr><td>agent gate (MCP)</td><td class="ok">an AI agent is blocked from deploying the vulnerable vault and allowed after the fix</td><td><span class="tag">tested</span></td></tr>
 </table></div>
 
 <h2>What is proven</h2>
-<p><code>fixed_vault_solvent_forever</code> holds for any accounts, any amounts, arbitrary attacker contracts and any receipt failing: after every trace, Σ ledger ≤ tokens held by the vault. <code>fixed_vault_no_stuck_funds</code> adds that whenever nothing is in flight, tokens held = Σ ledger. It assumes callbacks have gas reserved and that nobody makes plain <code>ft_transfer</code> donations to the vault. Both are checked by the Lean 4 kernel; <code>#print axioms</code> shows only <code>propext</code>, <code>Classical.choice</code> and <code>Quot.sound</code>.</p>
+<p><code>fixed_vault_solvent_forever</code> holds for any accounts, any amounts, arbitrary attacker contracts and any receipt failing: after every trace, Σ ledger ≤ tokens held by the vault. <code>fixed_vault_no_stuck_funds</code> adds that whenever nothing is in flight, tokens held = Σ ledger. It assumes callbacks don't fail and that nobody makes plain <code>ft_transfer</code> donations to the vault; <code>withdraw-fixed-callback-fail</code> shows the callback assumption is necessary. Both are checked by the Lean 4 kernel; <code>#print axioms</code> shows only <code>propext</code>, <code>Classical.choice</code> and <code>Quot.sound</code>.</p>
 
 <h2>Limits</h2>
 <p>Results are about models, written by hand and reviewed. Each model is checked against the Rust on the replayed traces, not in general. Gas, storage staking and deleted accounts are not modelled. Bounded results cover the stated actors, amounts and transactions only. <code>exorcist draft</code>, which has NEAR AI draft a model from Rust, is experimental.</p>

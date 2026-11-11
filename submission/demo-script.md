@@ -13,7 +13,7 @@ Have the GitHub PR #1 page or `docs/EXAMPLE_PR.md` open in a second window. The 
 | 1:05–1:20 | `(cd sandbox && cargo test --test replay deposit_attack -- --nocapture)` (pre-compiled) | "And it happens on real NEAR: in the sandbox, against Rust contracts, the attack does exactly what the model predicted, after every transaction." |
 | 1:20–1:42 | The one-line fix in `Verifier/Models/Vault.lean` (credit in `after_notify`, only on success); `./.lake/build/bin/exorcist prove incident-2026-10-fixed` → "✓ PROVEN FOR ALL TRACES" | "The fix: credit only after the notification succeeds. Testing could only show the bug is gone in the cases we tried. This is a proof: for any accounts, any amounts, any attacker contract, and any receipt failing, the vault stays solvent. Checked by the kernel, with no sorry." |
 | 1:42–1:53 | `python3 mcp/agent_gate_demo.py` (last lines: BLOCKED … allowed) | "AI agents ship contracts now. Through an MCP server, the agent may deploy only what Exorcist accepts. Vulnerable: blocked. Fixed: allowed." |
-| 1:53–2:00 | PR #1 with the red check, then the repo URL | "In CI, a PR that brings the bug back fails with the attack trace. Tests show a bug exists; proofs show none exist. Link below." |
+| 1:53–2:00 | PR #1 with the red check, then the repo URL | "In CI, a PR that brings the bug back fails with the attack trace. Tests show a bug exists; a proof shows none exists in the model. Link below." |
 
 Commands, in order:
 ```sh

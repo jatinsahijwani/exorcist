@@ -6,7 +6,7 @@ The problem: NEAR cross-contract calls are asynchronous. Each receipt commits on
 
 What we built: a Lean 4 model of NEAR async execution (receipts, callbacks, promise results, deposit refunds) and of the NEP-141 transfer/resolve flow. On top of it:
 - a bounded explorer that tries every receipt ordering and failure and prints the shortest attack trace. Each trace is re-checked by the Lean kernel as a witness theorem. On a minimal model of the incident mechanism (our own code, not their contract), it finds the full exploit automatically in 26,191 states.
-- unbounded Lean proofs that the fixed vault stays solvent and never strands user funds, for any accounts, amounts, attacker contracts and receipt failures. No sorry, no native_decide.
+- unbounded Lean proofs: the fixed vault is solvent for every trace (any accounts, amounts, attacker contracts, receipt failures), and leaves no funds stuck, assuming callbacks don't fail and no plain ft_transfer donations. No sorry, no native_decide.
 - validation of the model against real Rust contracts in the NEAR sandbox: 8 replays match after every transaction.
 - an MCP server that lets AI coding agents deploy only contracts that pass, a GitHub Action that fails PRs on violations, `exorcist new` to model your own contract in about 20 lines, and an experimental NEAR AI loop that drafts models from Rust (on our three contracts, every draft matched the hand-written model).
 

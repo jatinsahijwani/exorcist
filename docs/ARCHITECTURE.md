@@ -5,7 +5,7 @@ flowchart LR
   subgraph Lean["Lean 4 (v4.34.0, no Mathlib)"]
     A["Async.lean<br/>NEAR receipts, promises,<br/>callbacks, refunds"] --> M["Models/Vault.lean<br/>NEP-141 token (Token.lean),<br/>vault variants, hook"]
     M --> E["Explore.lean<br/>bounded search over orderings<br/>× receipt failures"]
-    M --> P["Proof/*.lean<br/>inductive invariants:<br/>solvent + no stuck funds,<br/>all traces"]
+    M --> P["Proof/*.lean<br/>inductive invariants:<br/>solvent (all traces) +<br/>no stuck funds (all traces,<br/>with assumptions)"]
     E --> W["witness .lean<br/>(decide, kernel-checked)"]
   end
   E -->|"exorcist check --json"| J["traces/*.json<br/>expected state after<br/>every transaction"]

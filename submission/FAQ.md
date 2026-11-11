@@ -35,7 +35,7 @@ scenario it is found, and the shortest one is printed. For the fix, a proof cove
 no amount of fuzzing can.
 
 **6. How is this different from tests?**
-Tests show that a bug exists; proofs show that none exists. A test checks the executions someone
+Tests show that a bug exists; a proof shows that none exists in the model. A test checks the executions someone
 thought of. The explorer checks all executions up to a bound, and the proof checks all executions,
 including the attacker's own contracts and failures of any receipt. We still use tests: the sandbox
 replay is how we test the model itself.
@@ -97,5 +97,6 @@ gate is only as good as the model, so a model the agent writes for itself must b
 Solvency is the property whose violation drains other users, and the one the exploit broke. The
 second property, "no stuck funds" (a failed payout must not burn the user's balance), is also proven
 for all traces (`fixed_vault_no_stuck_funds`): whenever nothing is in flight, the vault holds exactly
-what the ledger owes. It assumes callbacks are not failed (gas reserved) and no plain `ft_transfer`
-donations to the vault, and the README states both assumptions.
+what the ledger owes. It assumes callbacks don't fail and no plain `ft_transfer` donations to the vault.
+The first assumption is necessary: `withdraw-fixed-callback-fail` lets callbacks fail, and Exorcist finds
+funds stuck in 4 steps (the token's `ft_resolve_transfer` runs out of gas), while solvency still holds.

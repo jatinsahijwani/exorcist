@@ -25,7 +25,7 @@ fi
 
 mkdir -p out
 hr "2. Find the bugs (exorcist check, bounded search) — starting with a minimal model of the Oct 2026 NEAR Intents mechanism (not their contract)"
-for m in incident-2026-10 deposit-vulnerable noreturn-vulnerable withdraw-vulnerable; do
+for m in incident-2026-10 deposit-vulnerable noreturn-vulnerable withdraw-vulnerable withdraw-fixed-callback-fail; do
   echo; echo "\$ exorcist check $m --depth $DEPTH"
   out=$($EX check "$m" --depth "$DEPTH" --json "out/$m.json" 2>&1; echo "exit=$?")
   echo "$out" | sed -n '/^NOTE/p;/^RESULT/,/kernel/p'
@@ -62,7 +62,7 @@ for m in incident-2026-10-fixed deposit-fixed noreturn-fixed withdraw-fixed; do
 done
 for m in withdraw-fixed noreturn-fixed; do
   if grep -q "no_stuck_all_traces' depends on axioms" "out/prove-$m.axioms.txt" 2>/dev/null; then
-    row PASS "$m: no stuck funds (tokens held = ledger when idle)" "proven for all traces"
+    row PASS "$m: no stuck funds (assumes: callbacks don't fail, no donations)" "proven for all traces"
   else
     row FAIL "$m: no stuck funds proof" "-"
   fi

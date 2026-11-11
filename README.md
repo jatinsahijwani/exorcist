@@ -7,7 +7,8 @@
 Exorcist checks whether a NEAR contract can lose money when a cross-contract call fails. For a
 vulnerable contract it prints a concrete, step-by-step attack trace and a Lean theorem, checked by the
 Lean kernel, stating that the trace really breaks the invariant. For a fixed contract it gives an
-exhaustive bounded search result and a Lean 4 proof that the invariant holds for **every** trace.
+exhaustive bounded search result and a Lean 4 proof of the solvency invariant for **every** trace of our
+NEAR execution model.
 Every trace is also replayed against real Rust contracts in a local NEAR sandbox.
 (Recording: `docs/media/demo.cast`, playable with `asciinema play`; regenerate with `scripts/record-demo.py`.)
 
@@ -97,7 +98,8 @@ the invariant Exorcist checks. ([cryptonews summary of the Oct 16 postmortem](ht
    generated witness `.lean` file that the Lean kernel checks immediately.
 5. **Unbounded proofs** (`exorcist prove`): inductive invariants proving that the fixed vault is solvent
    after every trace, with any accounts, any amounts, arbitrary attacker contracts and **any** receipt
-   failures, and that it never strands a user's tokens (no stuck funds) (`Verifier/Proof/`).
+   failures, and that, assuming callbacks don't fail and no plain `ft_transfer` donations, it leaves no
+   user's tokens stuck (`Verifier/Proof/`).
 6. **Sandbox validation**: Rust versions of the token, vault variants and hook, and near-workspaces tests that
    replay every trace and compare the chain state to the model after every transaction.
 7. **CI**: a GitHub Action that fails a pull request when a deployed contract's model has a violation.
@@ -223,7 +225,8 @@ How the pieces fit: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | `noreturn-fixed` | no violation (839,929 states); solvent | bounded to depth 10; **proven for all traces** |
 | `withdraw-vulnerable` | user's tokens stuck in the vault after a failed payout | found within depth 10, witness kernel-checked |
 | `withdraw-fixed` | no violation (11,154,645 states); solvent | bounded to depth 10; **proven for all traces** |
-| `withdraw-fixed`, `noreturn-fixed` | no stuck funds: when nothing is in flight, tokens held = Σ ledger | **proven for all traces** (assumptions below) |
+| `withdraw-fixed`, `noreturn-fixed` | no stuck funds: when nothing is in flight, tokens held = Σ ledger | **proven for all traces, assuming callbacks don't fail and no plain `ft_transfer` donations** |
+| `withdraw-fixed-callback-fail` (fixed vault, but callbacks may fail) | funds stuck after 4 steps: the token's `ft_resolve_transfer` callback runs out of gas, so a deposit stays in the vault uncredited; solvency still holds | found at depth 4: the no-stuck assumption is necessary |
 | sandbox | all 8 trace replays match the model after every transaction; negative control passes | real Rust contracts, near-workspaces |
 | **NEAR testnet** | the attack drains the vulnerable vault; the same transactions leave the fixed vault whole ([links](#testnet-replay)) | live chain, matches the model |
 | agent gate (MCP) | an AI agent is blocked from deploying `withdraw-vulnerable` and allowed after the fix | tested in CI and `make demo` |

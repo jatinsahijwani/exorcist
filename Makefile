@@ -17,7 +17,7 @@ build:
 
 check: build     ## fails if any FIXED model has a violation, or a vulnerable model is not caught
 	@for m in incident-2026-10-fixed deposit-fixed noreturn-fixed withdraw-fixed; do ./.lake/build/bin/exorcist check $$m --depth $(DEPTH) || exit 1; done
-	@for m in incident-2026-10 deposit-vulnerable noreturn-vulnerable withdraw-vulnerable; do ./.lake/build/bin/exorcist check $$m --depth $(DEPTH) >/dev/null; test $$? -eq 1 || { echo "$$m: bug not found"; exit 1; }; done
+	@for m in incident-2026-10 deposit-vulnerable noreturn-vulnerable withdraw-vulnerable withdraw-fixed-callback-fail; do ./.lake/build/bin/exorcist check $$m --depth $(DEPTH) >/dev/null; test $$? -eq 1 || { echo "$$m: bug not found"; exit 1; }; done
 	@echo "check: fixed models clean (bounded to depth $(DEPTH)); vulnerable models caught"
 
 prove: build

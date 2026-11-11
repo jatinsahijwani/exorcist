@@ -113,6 +113,14 @@ def m_withdraw_fixed : Model :=
     proof := some "NearAsync.Vault.Proof.concrete_fixed_solvent + concrete_no_stuck", noStuck := true,
     leanName := "NearAsync.Vault.m_withdraw_fixed" }
 
+/-- The no-stuck-funds theorem assumes callbacks are not failed. This model drops that assumption
+(any receipt may fail, e.g. a callback runs out of gas) to show the assumption is needed. -/
+def m_withdraw_fixed_callback_fail : Model :=
+  { name := "withdraw-fixed-callback-fail", pattern := "assumption check: callbacks may fail",
+    summary := "the fixed vault, but the adversary may also fail callbacks (e.g. the token's resolve runs out of gas)",
+    adv := .anyReceipt, vulnerable := true,
+    leanName := "NearAsync.Vault.m_withdraw_fixed_callback_fail" }
+
 /-! ## Minimal model of the 2026 NEAR Intents incident mechanism
 
 NOT their contract. A minimal model, written from scratch, of the mechanism described in the
@@ -173,6 +181,6 @@ def m_incident_fixed : Model :=
 def models : List Model :=
   [ m_incident, m_incident_fixed,
     m_deposit_vulnerable, m_deposit_fixed, m_noreturn_vulnerable, m_noreturn_fixed,
-    m_withdraw_vulnerable, m_withdraw_fixed ]
+    m_withdraw_vulnerable, m_withdraw_fixed, m_withdraw_fixed_callback_fail ]
 
 end NearAsync.Vault
