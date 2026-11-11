@@ -1,0 +1,13 @@
+.lake/
+*.olean
+.DS_Store
+target/
+# private working files (not part of the project)
+BRIEF.md
+HACKATHON.md
+CLAUDE.md
+near_hackathon_projects.csv
+nep-0141.md
+submission/payload.json
+.env
+*.key

@@ -1,0 +1,10 @@
+name = "verifier"
+version = "0.1.0"
+defaultTargets = ["Verifier", "nearcheck"]
+
+[[lean_lib]]
+name = "Verifier"
+
+[[lean_exe]]
+name = "nearcheck"
+root = "Main"
