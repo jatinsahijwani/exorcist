@@ -41,9 +41,9 @@ the invariant Exorcist checks. ([cryptonews summary of the Oct 16 postmortem](ht
 4. **Bounded explorer** (`exorcist check`): every interleaving and every receipt failure up to depth N.
    It prints the shortest attack trace, a JSON file with the expected balances after every step, and a
    generated witness `.lean` file that the Lean kernel checks immediately.
-5. **Unbounded proof** (`exorcist prove`): an inductive invariant proving that the fixed vault is solvent
+5. **Unbounded proofs** (`exorcist prove`): inductive invariants proving that the fixed vault is solvent
    after every trace, with any accounts, any amounts, arbitrary attacker contracts and **any** receipt
-   failures (`Verifier/Proof/`).
+   failures, and that it never strands a user's tokens (no stuck funds) (`Verifier/Proof/`).
 6. **Sandbox validation**: Rust versions of the token, vault variants and hook, and near-workspaces tests that
    replay every trace and compare the chain state to the model after every transaction.
 7. **CI**: a GitHub Action that fails a pull request when a deployed contract's model has a violation.
