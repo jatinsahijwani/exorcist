@@ -2,7 +2,7 @@
 
 **Finds ghost funds in NEAR contracts, or proves there are none.**
 
-[Live results page](https://jatinsahijwani.github.io/exorcist/) · [Results](docs/RESULTS.md) · [Claims table](#for-automated-reviewers) · [What it does not claim](#what-exorcist-does-not-claim)
+[Live results page](https://jatinsahijwani.github.io/exorcist/) · [Trace viewer](https://jatinsahijwani.github.io/exorcist/viewer/) · [Results](docs/RESULTS.md) · [Claims table](#for-automated-reviewers) · [What it does not claim](#what-exorcist-does-not-claim)
 
 ![Exorcist finds the incident attack, proves the fix, and make demo passes](docs/media/demo.svg)
 
@@ -44,6 +44,10 @@ RESULT: VIOLATION (attacker_profit) at depth 8, 26191 states explored in 45 ms. 
 Witness theorem: out/incident-2026-10.witness.lean
   ✓ checked by the Lean kernel (decide): this trace really violates the property
 ```
+
+**Watch it step by step:** the [trace viewer](https://jatinsahijwani.github.io/exorcist/viewer/) animates this
+exact output (receipt arrows between eve, token, vault and hook; tokens held vs. ledger owed), and the same
+attack re-run on the fixed contract with `exorcist check incident-2026-10-fixed --attack-from incident-2026-10`.
 
 The fixed contract credits only after the notification has succeeded. It is clean up to depth 10
 (1,289,374 states) and **proven solvent for every trace of our NEAR execution model**:
@@ -131,13 +135,14 @@ output. Run commands from the repo root after `make quick`. "Contains" means the
 | 25 | `exorcist prove --ai` calls NEAR AI Cloud (works with a key; without a valid key it reports the API's answer) | `Exorcist/Prove.lean` | `NEARAI_API_KEY=invalid ./.lake/build/bin/exorcist prove deposit-fixed --ai --rounds 1` | contains `cloud-api.near.ai` and `Invalid or expired API key` |
 | 26 | `check --json` writes machine-readable results, with the state after every step | `Main.lean` | `./.lake/build/bin/exorcist check deposit-vulnerable --json /tmp/dv.json >/dev/null; python3 -c "import json; d=json.load(open('/tmp/dv.json')); print(len([s for s in d['violation']['trace'] if 'state_after' in s]), 'steps with state')"` | `5 steps with state` |
 | 27 | CI is green on `main` (incl. agent-gate, walkthrough and draft-pipeline tests) | `.github/workflows/exorcist.yml` | `curl -s -o /tmp/main.json https://api.github.com/repos/jatinsahijwani/exorcist/commits/main/check-runs && grep '"conclusion"' /tmp/main.json` | `"conclusion": "success"` for each job |
-| 28 | The live results page is up | `docs/site/index.html` | `curl -s -o /dev/null -w '%{http_code}' https://jatinsahijwani.github.io/exorcist/` | `200` |
+| 28 | The live results page and trace viewer are up | `web/` (deployed by the manual `pages` workflow) | `curl -s -o /dev/null -w '%{http_code} ' https://jatinsahijwani.github.io/exorcist/ https://jatinsahijwani.github.io/exorcist/viewer/` | `200 200` |
 | 29 | Toolchains and libraries are pinned (Lean 4.34.0, Rust 1.96.0, near-sdk 5.30.1, near-workspaces 0.24.0) | `lean-toolchain`, `sandbox/rust-toolchain.toml`, `sandbox/Cargo.lock` | `cat lean-toolchain sandbox/rust-toolchain.toml; grep -A1 'name = "near-sdk"$' sandbox/Cargo.lock; grep -A1 'name = "near-workspaces"$' sandbox/Cargo.lock` | `leanprover/lean4:v4.34.0`, `channel = "1.96.0"`, `version = "5.30.1"`, `version = "0.24.0"` |
 | 30 | On testnet the chain state matched the model after every transaction, for both vaults | `docs/testnet-replay-vulnerable.log`, `docs/testnet-replay-fixed.log` (output of `scripts/testnet-replay.sh`) | `grep -h "matches the model after every transaction" docs/testnet-replay-*.log` | 2 lines (vulnerable and fixed vault) |
 | 31 | The testnet script refuses anything that is not testnet | `scripts/testnet-replay.sh` | `EXORCIST_TESTNET_ACCOUNT=someone.near scripts/testnet-replay.sh` | `refusing: someone.near is not a .testnet account` |
 | 32 | `prove --bounded N` re-runs the bounded search inside the Lean kernel | `Exorcist/Prove.lean` | `./.lake/build/bin/exorcist prove deposit-fixed --bounded 4` | contains `KERNEL-CHECKED, BOUNDED TO DEPTH 4` and `depends on axioms: [propext]` |
 | 33 | The AI loops reject proposals that use `sorry`, `admit`, `native_decide` or new axioms, or change the statement | `Exorcist/Prove.lean`, `Exorcist/Draft.lean` | `grep -n 'def forbidden' Exorcist/Prove.lean` | `def forbidden : List String := ["sorry", "admit", "native_decide", "axiom ",` (then two more entries) |
 | 34 | A reusable GitHub Action is provided | `action.yml` | `grep -c 'using: composite' action.yml` | `1` |
+| 35 | The trace viewer renders real `exorcist check --json` output, nothing hand-written: the attack, and the same attack re-run on the fixed contract (`--attack-from`) | `web/public/traces/`, `scripts/viewer-traces.sh`, `.github/workflows/viewer.yml` | `scripts/viewer-traces.sh --check` | `OK: committed viewer traces equal fresh exorcist output` |
 
 ## What Exorcist does not claim
 
@@ -407,8 +412,8 @@ credit or vault transfer has its callback waiting on it for at least that amount
 | `sandbox/` | Rust contracts, replay library, near-workspaces tests, testnet binary |
 | `mcp/` | MCP agent-gate server and the scripted agent test |
 | `Verifier/Models/User.lean` | registry of your models (`exorcist new` creates them under `Verifier/Models/User/`) |
-| `scripts/` | `demo.sh`, `testnet-replay.sh`, `test-walkthrough.sh`, `drafts.sh`, `record-demo.py` |
-| `docs/site/` | the [live results page](https://jatinsahijwani.github.io/exorcist/) (deployed by the manual `pages` workflow) |
+| `scripts/` | `demo.sh`, `testnet-replay.sh`, `test-walkthrough.sh`, `drafts.sh`, `record-demo.py`, `viewer-traces.sh` |
+| `web/` | the [live results page](https://jatinsahijwani.github.io/exorcist/) and [trace viewer](https://jatinsahijwani.github.io/exorcist/viewer/): a Next.js static export, deployed by the manual `pages` workflow, checked by `viewer.yml`; separate from `make demo` and the Lean/Rust build |
 | `action.yml`, `.github/workflows/` | reusable GitHub Action and this repo's CI |
 | `docs/` | semantics, results, architecture, example PR |
 

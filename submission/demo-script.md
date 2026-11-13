@@ -1,19 +1,24 @@
 # Demo video script (~2 minutes)
 
-Setup before recording: terminal at the repo root, large font, `make build` already run, `clear`.
-Have the GitHub PR #1 page or `docs/EXAMPLE_PR.md` open in a second window. The animated
-`docs/media/demo.svg` can serve as b-roll.
+Setup before recording:
+- Browser at 1920×1080, full screen, on the trace viewer:
+  https://jatinsahijwani.github.io/exorcist/viewer/ (keys: space play/pause, → step, ← back, v / f switch contract).
+  For a clean take you can load `?step=0`; `?model=fixed` opens the fixed view.
+- Terminal at the repo root, large font, `make build` already run, `clear`.
+- Have the GitHub PR #1 page or `docs/EXAMPLE_PR.md` open in another window.
 
 | Time | On screen | Say |
 |---|---|---|
-| 0:00–0:10 | Title card: "Exorcist — finds ghost funds in NEAR contracts, or proves there are none" | "On October 1st, an attacker drained 3.8 million dollars of unbacked balances from NEAR Intents, using a cross-contract call that was made to fail on purpose." |
-| 0:10–0:22 | README, "The opening case" box (the quote from the postmortem) | "The postmortem describes the mechanism: a deposit notifies a contract the attacker controls, the notification fails, the token refunds the deposit, and the ledger keeps the credit. We wrote a minimal model of that mechanism. It is not their contract." |
-| 0:22–0:55 | `./.lake/build/bin/exorcist check incident-2026-10`, then scroll the trace | "We don't tell Exorcist what the attack is. We only ask whether an attacker can ever take out more than she put in. It tries every ordering of receipts and every failure, and in 26 thousand states, in about 50 milliseconds, it finds the whole exploit: deposit 100, fail the notification, get refunded, keep the credit, withdraw it. Eve ends with 200." Point at `⚠ INSOLVENT` and `eve=200`. |
-| 0:55–1:05 | The "✓ checked by the Lean kernel" line; briefly `cat out/incident-2026-10.witness.lean` | "This isn't a log line. The trace is a Lean theorem, checked by the Lean kernel." |
-| 1:05–1:20 | `(cd sandbox && cargo test --test replay deposit_attack -- --nocapture)` (pre-compiled) | "And it happens on real NEAR: in the sandbox, against Rust contracts, the attack does exactly what the model predicted, after every transaction." |
-| 1:20–1:42 | The one-line fix in `Verifier/Models/Vault.lean` (credit in `after_notify`, only on success); `./.lake/build/bin/exorcist prove incident-2026-10-fixed` → "✓ PROVEN FOR ALL TRACES" | "The fix: credit only after the notification succeeds. Testing could only show the bug is gone in the cases we tried. This is a proof: for any accounts, any amounts, any attacker contract, and any receipt failing, the vault stays solvent. Checked by the kernel, with no sorry." |
-| 1:42–1:53 | `python3 mcp/agent_gate_demo.py` (last lines: BLOCKED … allowed) | "AI agents ship contracts now. Through an MCP server, the agent may deploy only what Exorcist accepts. Vulnerable: blocked. Fixed: allowed." |
-| 1:53–2:00 | PR #1 with the red check, then the repo URL | "In CI, a PR that brings the bug back fails with the attack trace. Tests show a bug exists; a proof shows none exists in the model. Link below." |
+| 0:00–0:08 | Landing page https://jatinsahijwani.github.io/exorcist/ (the pixel EXORCIST wordmark; move the mouse over it) | "On October 1st, an attacker drained 3.8 million dollars of unbacked balances from NEAR Intents, with a cross-contract call made to fail on purpose." |
+| 0:08–0:18 | Click "Watch the attack, step by step". Viewer, **Vulnerable**, step 0. Point at the disclaimer line and the four lanes | "This is a minimal model of that mechanism, not their contract. Four contracts: eve the attacker, the token, the vault, and a hook contract eve owns. We never told Exorcist the attack. We only asked: can eve take out more than she put in?" |
+| 0:18–0:38 | Press play (1×). Steps 1–5 animate: the deposit, `ft_on_transfer`, the red ✗ on `on_deposit`, then the refund. At step 5 the ledger bar (400) passes the tokens bar (300) and the gap turns red | "Eve deposits 100. The vault credits her. Her own hook fails the notification, on purpose. The token sees the failure and refunds her. But the credit stays: the ledger now owes 400 and the vault holds 300. That red gap is ghost money." |
+| 0:38–0:44 | Steps 6–8: withdraw, `ft_transfer`. Point at "eve's tokens: 200 · profit +100" and the VIOLATION pill (depth 8, 26,191 states) | "She withdraws the credit as real tokens. Eve ends with 200. Exorcist found this in 26 thousand states, in about 50 milliseconds." |
+| 0:44–0:50 | Press **f** (Fixed). Play through quickly (2×): the ✗ on the notification, the refund, then the withdraw fails in red; the ledger never passes the tokens held. Point at the green "Proven for all traces of our NEAR execution model" badge | "The fix credits only after the notification succeeds. Same attack: the refund happens, the withdraw is rejected, and the ledger never owes more than the vault holds. And this isn't just one run: it's proven for every trace." |
+| 0:50–1:02 | Terminal: `./.lake/build/bin/exorcist check incident-2026-10`, scroll to "✓ checked by the Lean kernel"; briefly `cat out/incident-2026-10.witness.lean` | "Everything in that viewer is this command's JSON output. And the trace isn't a log line: it's a Lean theorem, checked by the Lean kernel." |
+| 1:02–1:20 | `./.lake/build/bin/exorcist prove incident-2026-10-fixed` → "✓ PROVEN FOR ALL TRACES" | "Testing could only show the bug is gone in the cases we tried. This is a proof: any accounts, any amounts, any attacker contract, any receipt failing, the vault stays solvent. Kernel-checked, no sorry." |
+| 1:20–1:35 | `(cd sandbox && cargo test --test replay deposit_attack -- --nocapture)` (pre-compiled) | "And it happens on real NEAR: in the sandbox, against Rust contracts, and on testnet, the attack does exactly what the model predicted, after every transaction." |
+| 1:35–1:50 | `python3 mcp/agent_gate_demo.py` (last lines: BLOCKED … allowed) | "AI agents ship contracts now. Through an MCP server, the agent may deploy only what Exorcist accepts. Vulnerable: blocked. Fixed: allowed." |
+| 1:50–2:00 | PR #1 with the red check, then the repo URL | "In CI, a PR that brings the bug back fails with the attack trace. Tests show a bug exists; a proof shows none exists in the model. Link below." |
 
 Commands, in order:
 ```sh
