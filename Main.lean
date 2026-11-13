@@ -11,6 +11,7 @@ structure Opts where
   json : Option String := none     -- "-" = stdout
   emitLean : Option String := none
   verify : Bool := true
+  attackFrom : Option String := none
 
 def parseCheck : List String → Opts → Except String Opts
   | [], o => .ok o
@@ -23,6 +24,7 @@ def parseCheck : List String → Opts → Except String Opts
   | ["--json"], o => .ok { o with json := some "-" }
   | "--emit-lean" :: f :: rest, o => parseCheck rest { o with emitLean := some f }
   | "--no-verify" :: rest, o => parseCheck rest { o with verify := false }
+  | "--attack-from" :: a :: rest, o => parseCheck rest { o with attackFrom := some a }
   | m :: rest, o =>
     if o.model = "" && !m.startsWith "--" then parseCheck rest { o with model := m }
     else .error s!"unexpected argument {m}"
@@ -32,6 +34,7 @@ def usage : String :=
   "usage:\n" ++
   "  exorcist list\n" ++
   "  exorcist check <model> [--depth N] [--json [FILE]] [--emit-lean FILE] [--no-verify]\n" ++
+  "                         [--attack-from <model>]   also re-run that model's attack on this one\n" ++
   "  exorcist prove <model> [--json] [--bounded N] [--ai] [--rounds N] [--ai-model ID]\n" ++
   "  exorcist new <name>          scaffold your own contract model (docs/WRITE-A-MODEL.md)\n" ++
   "  exorcist draft --from <lib.rs> --role token|vault|hook   EXPERIMENTAL: NEAR AI drafts a model\n\n" ++
@@ -148,14 +151,35 @@ def check (o : Opts) : IO UInt32 := do
       say s!"  ✗ NOT reachable within 12 steps: {g.name}"
       liveJson := liveJson ++ [jObj [("goal", jStr g.name), ("reachable", "false"), ("trace", "[]")]]
       if !m.vulnerable && code == 0 then code := 3
+  -- optionally: the attack found on another model, re-run on this one
+  let mut attackJson : Option String := none
+  if let some an := o.attackFrom then
+    let some am := findModel an
+      | do IO.eprintln s!"unknown model '{an}' for --attack-from"; return 2
+    let ar := explore { sys := am.sys, init := am.init, menu := am.menu, ok := am.prop } o.depth
+    let some atk := ar.trace
+      | do IO.eprintln s!"--attack-from {an}: no attack found on that model within depth {o.depth}"; return 2
+    let moves := attackMoves am.sys am.init atk
+    let t := adaptAttack sys 64 init moves []
+    let rs := rows sys init t
+    let final := (rs.getLast?.map (·.after)).getD init
+    let holds := m.prop final && (rs.all fun r => m.prop r.after)
+    say s!"\nThe attack found on {am.name} ({atk.length} steps), re-run on this contract ({rs.length} steps):\n"
+    for l in renderText rs do say l
+    say s!"\n  property holds in every state of this run: {holds}"
+    if !holds && code == 0 then code := 1
+    attackJson := some (jObj [("from_model", jStr am.name), ("attack_steps", toString atk.length),
+                              ("trace", traceJson rs), ("final_state", jState final),
+                              ("property_holds_every_step", toString holds)])
   if let some f := o.json then
-    let doc := jObj [ ("tool", jStr "exorcist"), ("model", jStr m.name), ("pattern", jStr m.pattern),
+    let doc := jObj <| [ ("tool", jStr "exorcist"), ("model", jStr m.name), ("pattern", jStr m.pattern),
                       ("vulnerable_expected", toString m.vulnerable),
                       ("bounds", boundsJson m o.depth), ("initial_state", jState init),
                       ("states_explored", toString r.visited), ("search_ms", toString ms),
                       ("disclaimer", match m.disclaimer with | some d => jStr d | none => "null"),
                       ("verdict", jStr (if r.trace.isSome then "violation" else s!"no_violation_bounded_to_depth_{o.depth}")),
-                      ("violation", violationJson), ("liveness", jArr liveJson) ]
+                      ("violation", violationJson), ("liveness", jArr liveJson) ] ++
+                      (match attackJson with | some a => [("attack_replay", a)] | none => [])
     if f == "-" then IO.println doc else do
       IO.FS.writeFile f doc; say s!"\nJSON written to {f}"
   return code

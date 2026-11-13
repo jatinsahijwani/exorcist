@@ -297,4 +297,66 @@ def replayJson (cfg : Config) (txs : List (Acct × Acct × Call Acct × Nat)) (i
   (jObj [ ("vault_wasm", jStr (vaultWasm cfg)), ("hook_mode", jStr (hookMode cfg)),
           ("txs", jArr js) ], wEnd)
 
+
+/-! ## Re-running another model's attack
+
+Used by `exorcist check <fixed> --attack-from <vulnerable>`: the attack the explorer found on the
+vulnerable model, re-run step by step on this model. Receipts are matched by receiver and method,
+because receipt ids differ when the contract emits different promises. -/
+
+inductive AttackMove where
+  | submit (s : Step Acct (Call Acct))
+  | exec (recv : Acct) (meth : String) (forced : Bool)
+
+def callKey (r : Receipt Acct (Call Acct)) : Option (Acct × String) :=
+  match r.action with
+  | .call c _ => some (r.recv, methodName c)
+  | .refund _ => none
+
+/-- The attack as moves that do not depend on receipt ids. -/
+def attackMoves (sys : System (St Acct) Acct (Call Acct)) : W → Tr → List AttackMove
+  | _, [] => []
+  | w, s :: t =>
+    let mv : Option AttackMove := match s with
+      | .submit .. => some (.submit s)
+      | .run rid | .fail rid =>
+        match findPending w.pending rid with
+        | some r => (callKey r).map fun (rv, m) => .exec rv m (match s with | .fail _ => true | _ => false)
+        | none => none
+    match step sys w s with
+    | none => []
+    | some w' => mv.toList ++ attackMoves sys w' t
+
+/-- Same transactions in the same order; each receipt the attack ran or failed is run or failed
+again when it exists here. A receipt that is pending but not yet ready waits for the receipts
+before it, which then run normally; a receipt that never exists here is skipped. At the end,
+everything still in flight runs to completion. -/
+def adaptAttack (sys : System (St Acct) Acct (Call Acct)) : Nat → W → List AttackMove → Tr → Tr
+  | 0, _, _, acc => acc.reverse
+  | fuel + 1, w, moves, acc =>
+    let ready := w.pending.filter fun r => (readiness w r).isSome
+    let runFirstReady (k : W → Tr → Tr) : Tr :=
+      match ready.head? with
+      | none => acc.reverse
+      | some r => match step sys w (.run r.id) with
+        | some w' => k w' (.run r.id :: acc)
+        | none => acc.reverse
+    match moves with
+    | [] => runFirstReady fun w' acc' => adaptAttack sys fuel w' [] acc'
+    | .submit s :: ms =>
+      match step sys w s with
+      | some w' => adaptAttack sys fuel w' ms (s :: acc)
+      | none => adaptAttack sys fuel w ms acc
+    | .exec rv meth forced :: ms =>
+      match ready.find? (callKey · == some (rv, meth)) with
+      | some r =>
+        let s : Step Acct (Call Acct) := if forced then .fail r.id else .run r.id
+        match step sys w s with
+        | some w' => adaptAttack sys fuel w' ms (s :: acc)
+        | none => adaptAttack sys fuel w ms acc
+      | none =>
+        if w.pending.any (callKey · == some (rv, meth)) then
+          runFirstReady fun w' acc' => adaptAttack sys fuel w' moves acc'
+        else adaptAttack sys fuel w ms acc
+
 end NearAsync.Vault
