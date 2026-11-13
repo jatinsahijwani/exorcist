@@ -1,0 +1,38 @@
+name: viewer
+# The trace viewer only. Kept apart from the core workflow (exorcist.yml) so a viewer problem can
+# never fail the Lean/Rust checks. It verifies that the committed viewer data equals fresh
+# `exorcist check --json` output, and that the static site builds.
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  traces:
+    name: committed traces = fresh exorcist output
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install elan
+        run: curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+      - name: Build the CLI and regenerate the traces
+        run: |
+          export PATH="$HOME/.elan/bin:$PATH"
+          lake build exorcist
+          scripts/viewer-traces.sh --check
+  site:
+    name: static site builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          test -f out/viewer/index.html && test -f out/traces/incident-2026-10.json
