@@ -1,0 +1,97 @@
+/* Trace viewer. Sized for a 1920×1080 screen recording; scales down to phones. */
+.vw-main { --lane-arrow: #7d7d88; padding: 18px 0 28px; }
+.vw-wrap { max-width: 1680px; margin: 0 auto; padding: 0 32px; }
+.vw-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+.vw-title { font-family: var(--display); font-weight: 600; font-size: 34px; line-height: 1.15; letter-spacing: -0.03em; margin: 0 0 6px; }
+.vw-sub { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 90ch; }
+
+.vw-toggle { display: inline-flex; border: 1px solid var(--line-strong); }
+.vw-toggle button { background: none; border: 0; padding: 10px 22px; font-size: 16px; cursor: pointer; color: var(--text-2); }
+.vw-toggle button.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.vw-toggle button:not(.on):hover { background: var(--raised); color: var(--text); }
+
+.vw-verdict { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 14px; align-items: center; }
+.pill { font-size: 14px; padding: 6px 12px; border: 1px solid var(--line-strong); color: var(--text-2); }
+.pill.bad { border-color: var(--negative); color: var(--negative); background: var(--negative-soft); font-weight: 600; }
+.pill.ok { border-color: color-mix(in srgb, var(--positive) 60%, transparent); color: var(--positive); }
+.badge-proven { font-size: 15px; font-weight: 600; padding: 7px 14px; background: var(--positive); color: #06180d; text-decoration: none; }
+.badge-proven:hover { filter: brightness(1.1); }
+
+.vw-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(360px, 1fr); gap: 24px; align-items: start; }
+.vw-stage { background: var(--surface); border: 1px solid var(--line); }
+
+/* lanes */
+.lanes { display: block; width: 100%; height: auto; font-family: var(--mono); }
+.lifeline { stroke: var(--line-strong); stroke-width: 1.5; stroke-dasharray: 2 6; }
+.lane-head { fill: var(--raised); stroke: var(--line-strong); }
+.lane-name { fill: var(--text); font-size: 19px; font-weight: 600; }
+.row-no { fill: var(--muted); font-size: 15px; }
+.arrow-line { stroke: var(--lane-arrow); stroke-width: 2.2; }
+.arrow.tx .arrow-line { stroke-dasharray: 7 5; }
+.arrow-label { fill: var(--text-2); font-size: 14.5px; }
+.arrow-label .rid { fill: var(--muted); }
+.arrow.cur .arrow-line { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 650ms var(--ease) forwards; }
+.arrow.cur.tx .arrow-line { animation: draw-tx 650ms var(--ease) forwards; }
+.arrow.cur .arrow-label { fill: var(--text); font-weight: 600; }
+.arrow.cur .row-no { fill: var(--accent); font-weight: 700; }
+.arrow.bad .arrow-line { stroke: var(--negative); }
+.arrow.bad .arrow-label, .arrow.bad .row-no { fill: var(--negative); }
+.cross { fill: var(--negative); font-size: 22px; font-weight: 700; }
+.arrow.cur .cross { animation: pop 400ms 450ms var(--ease) both; transform-box: fill-box; transform-origin: center; }
+.packet { fill: var(--accent); animation: travel 650ms var(--ease) forwards; }
+.arrow.bad .packet { fill: var(--negative); }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes draw-tx { from { opacity: 0; } to { opacity: 1; stroke-dasharray: 7 5; } }
+@keyframes travel { from { transform: translateX(0); opacity: 1; } 90% { opacity: 1; } to { transform: translateX(var(--dx)); opacity: 0; } }
+@keyframes pop { from { transform: scale(0); opacity: 0; } 60% { transform: scale(1.4); } to { transform: scale(1); opacity: 1; } }
+
+/* controls */
+.vw-controls { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.ctl { height: 42px; min-width: 46px; padding: 0 14px; background: var(--raised); border: 1px solid var(--line-strong); cursor: pointer; font-size: 16px; }
+.ctl:hover:not(:disabled) { border-color: var(--text); }
+.ctl:disabled { opacity: 0.35; cursor: not-allowed; }
+.ctl.play { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; min-width: 120px; }
+.vw-count { font-size: 16px; color: var(--text-2); margin: 0 6px; }
+.vw-dots { display: flex; gap: 6px; }
+.vw-dots .dot { width: 14px; height: 14px; padding: 0; border: 1px solid var(--line-strong); background: var(--raised); cursor: pointer; }
+.vw-dots .dot.ins { border-color: var(--negative); }
+.vw-dots .dot.f { background: var(--negative-soft); border-color: var(--negative); }
+.vw-dots .dot.cur { background: var(--accent); border-color: var(--accent); }
+.vw-speed { margin-left: auto; display: inline-flex; border: 1px solid var(--line-strong); }
+.vw-speed button { background: none; border: 0; padding: 8px 12px; cursor: pointer; color: var(--muted); font-size: 14px; }
+.vw-speed button.on { color: var(--text); background: var(--raised); }
+
+/* panel */
+.vw-panel { display: flex; flex-direction: column; gap: 16px; }
+.vw-card { background: var(--surface); border: 1px solid var(--line); padding: 20px 22px; }
+.vw-card.bad { border-color: var(--negative); box-shadow: inset 3px 0 0 var(--negative); }
+.vw-card.slim { padding: 14px 22px; font-size: 16px; }
+.vw-card .eyebrow { margin-bottom: 10px; }
+.vw-step-who { margin: 0 0 4px; font-size: 15px; color: var(--muted); }
+.vw-step-text { margin: 0 0 8px; font-size: 18px; line-height: 1.5; }
+.vw-step-text code { color: var(--text); font-size: 18px; }
+.vw-outcome { margin: 10px 0 0; font-size: 17px; font-weight: 600; color: var(--text); }
+.vw-changes { margin: 12px 0 0; padding: 10px 14px; list-style: none; background: #0a0a0c; border: 1px solid var(--line); font-size: 15px; color: var(--accent-ink); }
+.small { font-size: 13.5px; margin: 6px 0 0; }
+.bad { color: var(--negative); }
+.ok { color: var(--positive); }
+
+.meter-row { display: grid; grid-template-columns: 160px minmax(0, 1fr) 52px; align-items: center; gap: 12px; margin: 12px 0; }
+.meter-label { font-size: 14px; color: var(--text-2); }
+.meter-track { position: relative; height: 28px; background: #0a0a0c; border: 1px solid var(--line); }
+.meter { position: absolute; top: 0; bottom: 0; left: 0; transition: width 600ms var(--ease), left 600ms var(--ease); }
+.meter.held { background: var(--accent); }
+.meter.owes { background: #d9d6e6; }
+.meter.gap { background: repeating-linear-gradient(135deg, var(--negative) 0 8px, #b83a3a 8px 16px); }
+.meter-num { font-size: 20px; font-weight: 600; text-align: right; }
+.vw-gap { margin: 8px 0 0; font-size: 16px; font-weight: 600; }
+
+.vw-foot { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 13.5px; display: grid; gap: 6px; }
+.vw-foot code { color: var(--text); font-size: 14.5px; word-break: break-word; }
+
+@media (max-width: 1100px) {
+  .vw-grid { grid-template-columns: minmax(0, 1fr); }
+  .vw-wrap { padding: 0 16px; }
+  .vw-title { font-size: 26px; }
+  .vw-speed { margin-left: 0; }
+}

@@ -125,6 +125,4 @@ if __name__ == "__main__":
     scenes = [scene_incident(), scene_prove(), scene_demo()]
     write_cast(scenes, os.path.join(ROOT, "docs/media/demo.cast"))
     write_svg(scenes, os.path.join(ROOT, "docs/media/demo.svg"))
-    os.makedirs(os.path.join(ROOT, "docs/site/media"), exist_ok=True)
-    write_svg(scenes, os.path.join(ROOT, "docs/site/media/demo.svg"))
     print("wrote docs/media/demo.cast and docs/media/demo.svg")

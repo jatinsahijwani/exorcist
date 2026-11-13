@@ -1,23 +1,36 @@
 name: pages
-# Publishes docs/site as the GitHub Pages results page. Manual only: enable Pages
-# (Settings → Pages → Source: GitHub Actions) after the repository is public, then run this workflow.
+# Publishes the site in web/ (results page at /exorcist/, trace viewer at /exorcist/viewer/) to
+# GitHub Pages. Manual only. Separate from the Lean/Rust CI: nothing here can affect it.
 on:
   workflow_dispatch:
 permissions:
   contents: read
   pages: write
   id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - run: mkdir -p docs/site/media && cp docs/media/demo.svg docs/site/media/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build the static site
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/site
+          path: web/out
       - id: deploy
         uses: actions/deploy-pages@v4
